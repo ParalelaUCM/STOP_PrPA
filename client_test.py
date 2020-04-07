@@ -68,6 +68,6 @@ def new_play(letter):
 
 while (True):
     stop = False
-    new_play("c")
+    new_play("b")
 
 
