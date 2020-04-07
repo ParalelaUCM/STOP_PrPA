@@ -29,7 +29,7 @@ def Stop():
     publish.single(topic, payload="msg: STOP", hostname="wild.mat.ucm.es")
 
 def init_table():
-    return ({"comida": None, "pais":None, "ciudad":None})
+    return ({"comida": None, "pais": None, "ciudad": None})
 
 def insert_word(word, tema, table, letter):
     if (not(stop)):
@@ -66,8 +66,12 @@ def new_play(letter):
     print("\n____FIN DE LA RONDA___\n")
 
 
+
+#Cliente de Berni
 while (True):
     stop = False
-    new_play("b")
-
-
+    #Si la partida ha empezado:
+    new_play("d")
+    #Enviar mi tabla al servidor
+    #Recibir puntuacion y mostrar
+#Se acabo
