@@ -9,7 +9,8 @@ Created on Tue Apr  7 23:06:59 2020
 from multiprocessing import Process, Value
 from paho.mqtt.client import Client
 import paho.mqtt.publish as publish
-
+from time import sleep
+from random import random
 #broker="localhost"
 broker="wild.mat.ucm.es"
 
@@ -20,6 +21,13 @@ Todo el tema de las puntuaciones la tiene que llevar el servidor porque si no de
 imposible detectar lo que han escrito los rivales. Al hacer STOP habria que mandar tu nombre
 y tu tablero al server mediante el topic, por elejemplo,
 clients/estop1/partidas/1/resultados para asi tratarlos mas comodamente desde el server
+"""
+
+"""
+LEEEEEEEEEEEEEEEEEEEEEEEEEER ESTOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+He cambiado prints y lo he dejado todo mas claro a la hora de jugar. Tambien he conseguido 
+que dada cualquier letra por el servidor(ya no solo da la c) la meta en una variable y
+ya la fiuncion new_play juegue con ella. No hay nada mas nuevo
 """
 class Player:
     #Constructora
@@ -61,33 +69,39 @@ def callback_servidor(mqttc, userdata, msg):
         mqttc.disconnect()
 
 def callback_partidas(mqttc, userdata, msg):
+    #Yo no pondria este print con el MESSAGE y todo eso
     #print("MESSAGE:", userdata, msg.topic, msg.qos, msg.payload, msg.retain)
+    l=len("JUGAR RONDA") #llga un msg.payload=b"JUGAR RONDA/C"
     if (msg.payload == b'STOP'):
         global stop
+        if (not(stop)):
+            print("Otro jugador ha dado STOP, pulse intro para continuar")
         stop = True
-        print("Otro jugador ha dado STOP, pulse intro para continuar")
-    else:
+    elif (msg.payload[:l] == b'JUGAR RONDA'):
         spl=msg.topic.split("/") #['clients','estop','partidas','1']
-        num_partida=spl[3]
-        l="JUGAR RONDA" #llga un msg.payload=b"JUGAR RONDA/C"
-        if str(msg.payload)[2:-3]=="JUGAR RONDA":
-            letra=str(msg.payload)[-2]
-            jugar.value = 1
-            #jugar(num_partida,letra)
+        #if (msg.payload[:l] == b'JUGAR RONDA'):
+        partida.value = int(spl[3])
+        global letra
+        letra = str(msg.payload)[-2]
+        print(letra)
+    else:
+        print("MESSAGE:", userdata, msg.topic, msg.qos, msg.payload, msg.retain)
     
 
 def on_message(mqttc, userdata, msg):
-    print("MESSAGE:", userdata, msg.topic, msg.qos, msg.payload, msg.retain)
+    #print("MESSAGE:", userdata, msg.topic, msg.qos, msg.payload, msg.retain)
     #para las /solicitudes (pues /servidor y /partidas tienen sus callback propias)
-    if (msg.topic == "clients/estop1/partidas/1"):
-        callback_partidas(msg.topic, msg.payload)
     if msg.topic=="clients/estop1/jugadores/"+userdata:
         l=len("NUEVA PARTIDA") #llega el msg.payload=b"NUEVA PARTIDA 3"
         if msg.payload[:l]==b"NUEVA PARTIDA":
+            #Lo de abajo sobraria ya que ya tenemos
             mqttc.subscribe("clients/estop1/partidas/"+str(msg.payload[l+1:])[2:-1])
+            #mqttc.message_callback_add("clients/estop1/partidas/"+str(msg.payload[l+1:])[2:-1], callback_partidas)
             mqttc.publish("clients/estop1/solicitudes",payload="PARTIDA CREADA")
             print("Has creado la partida "+str(msg.payload[l+1:])[2:-1])
             print("Esperando a más jugadores...")
+        else:
+            print("MESSAGE:",msg.payload)
         l=len("NUEVA [0] o CARGAR") #llega el msg.payload=b"NUEVA [0] o CARGAR [1,3]"
         if msg.payload[:l]==b"NUEVA [0] o CARGAR":
             disponibles=msg.payload[l+1:]
@@ -100,6 +114,7 @@ def on_message(mqttc, userdata, msg):
                 print("Esperando a más jugadores...")
             elif eleccion in str(disponibles)[2:-1]: #si elige una disponible, se une
                 print(eleccion,disponibles)
+                #mqttc.message_callback_add("clients/estop1/partidas/"+eleccion, callback_partidas)
                 mqttc.subscribe("clients/estop1/partidas/"+eleccion)
                 mqttc.publish("clients/estop1/solicitudes/"+userdata,
                           payload=eleccion)
@@ -107,6 +122,7 @@ def on_message(mqttc, userdata, msg):
                 print("Consigues entrar en la partida",eleccion)
             else: #si elige algo raro, se le echa del juego
                 print("No existe esa partida")
+                #¿Esto se podria hacer con un try y una excepcion? No se si con eso quedaria mejor
                 mqttc.disconnect()
 
 #stop = False
@@ -115,9 +131,9 @@ def Stop(num_partida):
     global stop
     stop = True
     #mqttc.publish("clients/estop1/jugadores/elisa", payload = "Sergio ha hecho Stop, pulsa intro")
-    #mqttc.publish("clients/estop1/partidas/"+str(num_partida), payload="STOP")
-    publish.single("clients/estop1/partidas/"+str(num_partida), 
-                   payload="STOP", hostname="wild.mat.ucm.es")
+    mqttc.publish("clients/estop1/partidas/"+str(num_partida), payload="STOP")
+    #publish.single("clients/estop1/partidas/"+str(num_partida), 
+                   #payload="STOP", hostname="wild.mat.ucm.es")
 
 def init_table():
     return ({"comida": None, "pais": None, "ciudad": None})
@@ -130,6 +146,32 @@ def insert_word(word, tema, table, letter):
             print("Esa palabra no empieza por", letter)
     else:
         print("Lo siento pero alguien ya dió el STOP")
+
+def new_play(num_partida, letter):
+    table = init_table()
+    #global stop
+    print("\n____Empezamos nueva ronda_____\n")
+    print("La letra de la ronda es:",letter)
+    while (not(stop)):
+        print("\n", table)
+        tema = input("\n¿Que tema quieres rellenar?\n('STOP' para parar)\n\n-> ")
+        if (not(stop)):
+            print(tema)
+            if (tema == "STOP"):
+                Stop(num_partida)
+            elif (tema in table):
+                msg = "\n¿Que "+ tema + " se te ocurre con la letra " +letter+"?\n('STOP' para parar, 'BACK' para elegir tema de nuevo)\n\n-> "
+                word = input(msg)
+                if (word == "STOP"):
+                    Stop(num_partida)
+                elif (word != "BACK"):
+                    insert_word(word, tema, table, letter)
+                    print('\nok')
+                    print("\n\n____________________\n")
+            else:
+                print("\nEse tema no existe actualmente... Prueba de nuevo")
+    print("\n____FIN DE LA RONDA___\n")
+    return table
 
 ###
                 
@@ -157,38 +199,17 @@ mqttc.publish("clients/estop1/solicitudes",payload=nombre_usuario)
 mqttc.loop_start()
 
 jugar = Value('i', 0)
+partida = Value('i', 0)
+
 stop = False
+global letra
 
 while True:
-    while jugar.value == 0:
+    while partida.value == 0:
         pass
-    print(jugar.value)
-    table = init_table()
-    #global stop
-    print("\n____Empezamos nueva ronda_____\n")
-    print("La letra de la ronda es 'c'")
-    while (not(stop)):
-        print("\n", table)
-        tema = input("\n¿Que tema quieres rellenar?\n('STOP' para parar)\n\n-> ")
-        if (not(stop)):
-            print(tema)
-            if (tema == "STOP"):
-                Stop(1)
-            elif (tema in table):
-                msg = "\n¿Que "+ tema + " se te ocurre con la letra 'c' ?\n('STOP' para parar, 'BACK' para elegir tema de nuevo)\n\n-> "
-                word = input(msg)
-                if (word == "STOP"):
-                    Stop(1)
-                elif (word != "BACK"):
-                    insert_word(word, tema, table, 'c')
-                    print('\nok')
-                    print("\n\n____________________\n")
-            else:
-                print("\nEse tema no existe actualmente... Prueba de nuevo")
-        else:
-            print("Lo siento pero alguien ya dió el STOP")
-    print("\n____FIN DE LA RONDA___\n")
-    jugar.value = 0
+    table = new_play(partida.value,letra)
+    partida.value = 0
+    #sleep(1)
     datos = Player(1, table)
     print("La puntuacion es", datos.calculate_score([datos]), "pts")
     

@@ -8,6 +8,8 @@ Created on Tue Apr  7 23:18:50 2020
 from paho.mqtt.client import Client
 from multiprocessing import Process,Lock
 from time import sleep
+import random
+import string
 #--creo que habrá que poner un Lock para todos los accesos al diccionario del userdata
 
 #broker="localhost"
@@ -61,16 +63,16 @@ def callback_partidas(mqttc, userdata, msg):
     #aquí se manejan los mensajes que llegan de cada partida
     #se puede modificar el diccionario del servidor
     #falta cambiar la función, de momento he puesto una que no hace nada útil
-    if (msg.payload == b'STOP'):
+    """if (msg.payload == b'STOP'):
         mqttc.publish(msg.topic, payload = "Otro jugador ha hecho STOP, pulsa into para continuar")
-    else: 
-        spl=msg.topic.split("/") #spl=['clients','estop','partidas','1','jugador_x']
-        if len(spl)==5:
-            num_partida=spl[3]
-            usuario=spl[4]
-            mensaje=str(msg.payload)[2:-1]
-            (userdata[int(num_partida)]).append(usuario+mensaje)
-        print("estop actual",userdata) #mostramos el diccionario tras cada mensaje
+    else: """
+    spl=msg.topic.split("/") #spl=['clients','estop','partidas','1','jugador_x']
+    if len(spl)==5:
+        num_partida=spl[3]
+        usuario=spl[4]
+        mensaje=str(msg.payload)[2:-1]
+        (userdata[int(num_partida)]).append(usuario+mensaje)
+    #print("estop actual",userdata) #mostramos el diccionario tras cada mensaje
 
 def callback_jugadores(mqttc, userdata, msg):
     #maneja las desconexiones inesperadas de los jugadores
@@ -98,6 +100,7 @@ def on_message(mqttc, userdata, msg):
             mqttc.publish("clients/estop1/jugadores/"+str(msg.payload)[2:-1],
                           payload="NUEVA PARTIDA 1")
             userdata[1]=["partidas/1",str(msg.payload)[2:-1]]
+            print("estop actual",userdata) #mostramos el diccionario tras cada mensaje
             #Process(target=partida,args=(1,)).start()#¿Esto al final va ser necesario?
         else:
             #si hay alguna partida, deja al usuario elegir entre nueva o cargar
@@ -116,29 +119,35 @@ def on_message(mqttc, userdata, msg):
             mqttc.publish("clients/estop1/jugadores/"+msg.topic[l:],
                           payload="NUEVA PARTIDA "+str(num_partidas+1))
             userdata[num_partidas+1]=["partidas/"+str(num_partidas+1),msg.topic[l:]]
+            print("estop actual",userdata) #mostramos el diccionario tras cada mensaje
         else:
             indice_partida=int(str(msg.payload)[2:-1])
             userdata[indice_partida].append(msg.topic[l:])
+            print("estop actual",userdata) #mostramos el diccionario tras cada mensaje
             #decidimos cuando empezar la partida, según los usuarios apuntados
             if len(userdata[indice_partida])-1 < min_jugadores_partida:
                 mqttc.publish("clients/estop1/partidas/"+str(indice_partida),
-                              payload="AUN NO HAY JUGADORES SUFICIENTES")
+                              payload="SE HA UNIDO UN JUGADOR, AUN NO HAY JUGADORES SUFICIENTES")
             elif len(userdata[indice_partida])-1 == min_jugadores_partida:
                 mqttc.publish("clients/estop1/partidas/"+str(indice_partida),
-                              payload="YA HAY JUGADORES SUFICIENTES")
-                mqttc.publish("clients/estop1/partidas/"+str(indice_partida),
-                              payload = "La partida comenzara en 10 segundos")
+                              payload="YA HAY JUGADORES SUFICIENTES, LA PARTIDA COMENZARA EN 5 SEGUNDOS")
+                #mqttc.publish("clients/estop1/partidas/"+str(indice_partida),
+                 #             payload = "LA PARTIDA COMENZARA EN 5 SEGUNDOS")
+                letra = random.choice(string.ascii_lowercase)
+                print(letra)
                 sleep(5)
                 mqttc.publish("clients/estop1/partidas/"+str(indice_partida),
-                              payload="JUGAR RONDA/c")
-            else:
+                              payload="JUGAR RONDA/"+letra)
+            elif len(userdata[indice_partida])-1 <= max_jugadores_partida:
+                print("cliente entra tarde a la partida")
+                mqttc.publish("clients/estop1/jugadores/"+msg.topic[l:],
+                              payload = "Partida en marcha, espera a unirte en la siguiente ronda")
+                
+                
                 #falta el caso en el que se conecta uno más tarde
                 #de momento creo que es mejor que funcione como una partida
                 #normal en la que todos los jugadores están desde el principio
                 pass
-    #
-    print("estop actual",userdata) #mostramos el diccionario tras cada mensaje
-    #
 
 
 ###
