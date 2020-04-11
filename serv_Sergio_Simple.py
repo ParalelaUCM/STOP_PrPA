@@ -7,10 +7,17 @@ Created on Tue Apr  7 23:18:50 2020
 
 
 '''
-nuevas cosas (por orden de aparición):
-choques
-alfabeto
-def calcula puntos
+nuevas cosas:
+#
+el userdata es un diccionario de partidas:
+->en cada partida se guarda un diccionario con:
+-->los nombres de los jugadores: diccionario con las respuestas
+-->'info':diccionario con el estado de la partida y el alfabeto
+#
+creo que los sleep deberían estar todos en el cliente, pues el servidor no puede
+pararse ya que igual atiende a más partidas (Respuesta: Me parece perfecto)
+#
+-----
 IMPORTTANTE: el creado un nuevo cliente, llamado ccc, que se encarga con su userdata
 de llevar el diccionario de usuarios, y de administrar las puntuaciones, de momento
 está en un topic separado clients/prueba/1...: tiene tb su callback propio, llamado
@@ -26,7 +33,7 @@ import pickle
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="estop2" #topic="clients/"+choques+"/servidor...
+choques="clients/estop10" #topic=choques+"/servidor...
 #para evitar que coincidamos en el broker, cada uno que ponga uno
 
 alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas
@@ -83,92 +90,112 @@ def calcula_puntos(ids,diccs,num_partida):
     for i in range(len(ids)):
         print(ids[i],":",puntuaciones[i])
     #publicamos resultados a los usuarios:
-    mqttc.publish("clients/"+choques+"/partidas/"+str(num_partida)+"/puntos",
+    mqttc.publish(choques+"/partidas/"+str(num_partida)+"/puntos",
                   payload=pickle.dumps([ids,puntuaciones]))
-    #preparamos la siguiente ronda
-    letra=alfabeto.pop(0)
-    sleep(30)
-    mqttc.publish("clients/"+choques+"/partidas/"+str(num_partida),
-                  payload="JUGAR RONDA/"+letra)
 
 #
 def callback_partidas(mqttc, userdata, msg):
-    #creo que este if no hace falta, pues el cliente tiene un print similar
-    #lo del else creo que tb sobra
-    #probar
-    '''
-    if (msg.payload == b'STOP'):
-        mqttc.publish(msg.topic, payload = "Otro jugador ha hecho STOP, pulsa into para continuar")
-    else:
-        spl=msg.topic.split("/") #spl=['clients','estop','partidas','1','jugador_x']
-        if len(spl)==5 and spl[4]!="puntos":
-            num_partida=spl[3]
-            usuario=spl[4]
-            mensaje=str(msg.payload)[2:-1]
-            (userdata[int(num_partida)]).append(usuario+mensaje)
-    '''
+    spl=msg.topic.split("/") #['clients','estop','partidas','1','puntos']
+    indice_partida=int(spl[3])
+    if (msg.payload==b"READY_YES") and (userdata[indice_partida]['info']['estado']==1):
+        letra=(userdata[indice_partida]['info']['alfabeto']).pop(0)
+        userdata[indice_partida]['info']['estado']=2 #estado: en juego
+        for jugador in userdata[indice_partida]:
+            mqttc.publish(choques+"/jugadores/"+jugador,payload="PLAY_"+letra)
+    if msg.payload==b"STOP":
+        userdata[indice_partida]['info']['estado']=3 #estado: en recuento
+        for jugador in userdata[indice_partida]:
+            mqttc.publish(choques+"/jugadores/"+jugador,payload="STOP")
+    elif len(spl)==5: #['clients','estop','partidas','1','puntos']
+        if spl[4]!="puntos": #['clients','estop','partidas','1','jugador']
+            mensaje=pickle.loads(msg.payload) #llega el diccionario entero
+            userdata[indice_partida][spl[4]]=mensaje
+            userdata[indice_partida]['info']['confirmados']+=1
+            cuantos=len(userdata[indice_partida])-1 #cuantos jugadores
+            if cuantos==userdata[indice_partida]['info']['confirmados']:
+                userdata[indice_partida]['info']['confirmados']=0
+                ids=[]
+                diccs=[]
+                for clave,valor in userdata[indice_partida].items():
+                    if clave!='info':
+                        ids.append(clave)
+                        diccs.append(valor)
+                        mqttc.publish(choques+"/jugadores/"+clave,
+                                      payload="RECUENTO")
+                print("ENTRAMOS A CALCULAR PUNTOS")
+                calcula_puntos(ids,diccs,spl[3])
+        else: #se han publicado los puntos -> preparamos la siguiente ronda
+            userdata[indice_partida]['info']['estado']=1 #estado: en espera
+            for jugador in userdata[indice_partida]:
+                mqttc.publish(choques+"/jugadores/"+jugador,payload="READY")
 
 def callback_jugadores(mqttc, userdata, msg):
     #maneja las desconexiones inesperadas de los jugadores
     #eliminandolos del diccionario del servidor
+    spl=msg.topic.split("/") #['clients','estop','jugadores','nombre']
     if msg.payload==b"DISCONNECT":
-        l=len("clients/"+choques+"/jugadores/")
-        usuario=msg.topic[l:]
+        usuario=spl[3]
         for clave,valor in userdata.items():
             if usuario in valor:
-                valor.remove(usuario)
+                valor.pop(usuario)
                 if len(valor)==1:
                     userdata.pop(clave)
                     break
-                #este mensaje ver si hace falta
-                mqttc.publish("clients/"+choques+"/partidas/"+str(clave),
-                              payload=str(usuario)+" ha abandonado la partida")
+        print("userdata actaul:",userdata)
 
 def on_message(mqttc, userdata, msg):
+    print("MESSAGE:", userdata, msg.topic, msg.qos, msg.payload, msg.retain)
+
+#
+def callback_solicitudes(mqttc, userdata, msg):
     #print("MESSAGE:", userdata, msg.topic, msg.qos, msg.payload, msg.retain)
-    #para las /solicitudes (pues /partidas y /jugadores tienen sus callback propias)
-    #nota para más tarde: mejorar esta entrada de usuarios
-    if msg.topic=="clients/"+choques+"/solicitudes":
+    spl=msg.topic.split("/") #['clients','estop','solicitudes','jugador']
+    if len(spl)==3: #['clients','estop','solicitudes']
+        usuario=str(msg.payload)[2:-1]
         if userdata=={}:
             #si no hay nadie aún, mete al usuario en la partida 1
-            mqttc.publish("clients/"+choques+"/jugadores/"+str(msg.payload)[2:-1],
-                          payload="NUEVA PARTIDA 1")
-            userdata[1]=["partidas/1",str(msg.payload)[2:-1]]
-            #Process(target=partida,args=(1,)).start()#¿Esto al final va ser necesario?
+            mqttc.publish(choques+"/jugadores/"+usuario,payload="NUEVA_PARTIDA 1")
+            userdata[1]={"info":{'estado':0,'alfabeto':alfabeto,'confirmados':0},
+                         usuario:{}}
         else:
             #si hay alguna partida, deja al usuario elegir entre nueva o cargar
             partidas_disponibles=[]
             for clave,valor in userdata.items():
                 if len(valor)<max_jugadores_partida+1:
                     partidas_disponibles.append(clave)
-            mqttc.publish("clients/"+choques+"/jugadores/"+str(msg.payload)[2:-1],
+            mqttc.publish(choques+"/jugadores/"+usuario,
                           payload="NUEVA [0] o CARGAR "+str(partidas_disponibles))
     #
     #ahora manejamos la eleccion de partida del cada usuario
-    l=len("clients/"+choques+"/solicitudes/")
-    if msg.topic[:l]=="clients/"+choques+"/solicitudes/":
+    ###l=len(choques+"/solicitudes/")
+    if len(spl)==4: #['clients','estop','solicitudes','jugador']
+        usuario=spl[3]
         if msg.payload==b"0":
-            num_partidas=len(userdata)
-            mqttc.publish("clients/"+choques+"/jugadores/"+msg.topic[l:],
-                          payload="NUEVA PARTIDA "+str(num_partidas+1))
-            userdata[num_partidas+1]=["partidas/"+str(num_partidas+1),msg.topic[l:]]
+            p_libre=1 #buscamos qué partida está libre
+            while p_libre in userdata.keys():
+                p_libre+=1
+            mqttc.publish(choques+"/jugadores/"+usuario,
+                          payload="NUEVA_PARTIDA "+str(p_libre))
+            userdata[p_libre]={"info":{'estado':0,'alfabeto':alfabeto,'confirmados':0}
+                               ,usuario:{}}
         else:
             indice_partida=int(str(msg.payload)[2:-1])
-            userdata[indice_partida].append(msg.topic[l:])
+            userdata[indice_partida][usuario]={}
             #decidimos cuando empezar la partida, según los usuarios apuntados
+            ###esto hay que mirarlo:
             if len(userdata[indice_partida])-1 < min_jugadores_partida:
-                mqttc.publish("clients/"+choques+"/partidas/"+str(indice_partida),
-                              payload="AUN NO HAY JUGADORES SUFICIENTES")
+                #no hay jugadores suficientes
+                for jugador in userdata[indice_partida]:
+                    mqttc.publish(choques+"/jugadores/"+usuario,payload="NOT_INOF")
             elif len(userdata[indice_partida])-1 == min_jugadores_partida:
-                mqttc.publish("clients/"+choques+"/partidas/"+str(indice_partida),
-                              payload="YA HAY JUGADORES SUFICIENTES")
-                mqttc.publish("clients/"+choques+"/partidas/"+str(indice_partida),
-                              payload = "La partida comenzara en 10 segundos")
-                sleep(1) #tiempo de espera para aceptar más jugadores
-                letra=alfabeto.pop(0)
-                mqttc.publish("clients/"+choques+"/partidas/"+str(indice_partida),
-                              payload="JUGAR RONDA/"+letra)
+                #ya hay jugadores suficientes
+                #el sleep ha pasado al cliente
+                userdata[indice_partida]['info']['estado']=1 #estado: en espera
+                for jugador in userdata[indice_partida]:
+                    mqttc.publish(choques+"/jugadores/"+jugador,payload="READY")
             else:
+                print("Ha elisa la toca esperar")
+                mqttc.publish(choques+"/jugadores/"+usuario, payload="WAIT")
                 #falta el caso en el que se conecta uno más tarde
                 #de momento creo que es mejor que funcione como una partida
                 #normal en la que todos los jugadores están desde el principio
@@ -176,56 +203,57 @@ def on_message(mqttc, userdata, msg):
     #
     print("estop actual",userdata) #mostramos el diccionario tras cada mensaje
     #
+
 #
-def callback_prueba(ccc, userdata, msg):
+def callback_servidor(mqttc, userdata, msg):
+    #aceptamos conexiones
     #print("MESSAGE:", userdata, msg.topic, msg.qos, msg.payload, msg.retain)
-    spl=msg.topic.split("/") #['clients','prueba','1','berni']
-    mensaje=pickle.loads(msg.payload) #{'ciudad':'madrid'}
-    userdata[spl[3]]=mensaje
-    if len(userdata)==2: #probamos con 2 jugadores->generalizar
-        ids=[]
-        diccs=[]
+    print("MESSAGE:", msg.topic, msg.payload)
+    spl=msg.topic.split("/") #['clients','estop','servidor','nombre']
+    if msg.payload==b"CONNECT_REQUEST":
+        ya_registrado=False
+        usuario=spl[3]
         for clave,valor in userdata.items():
-            ids.append(clave)
-            diccs.append(valor)
-        print("ENTRAMOS A CALCULAR PUNTOS")
-        calcula_puntos(ids,diccs,spl[2])
-        userdata={}
-        sleep(5)
+            if usuario in valor:
+                ya_registrado=True
+                break
+        if (usuario=="") or (usuario=="info") or ya_registrado or (usuario=="puntos"):
+            #cosas que no aceptamos como nombre_usuario
+            mqttc.publish(choques+"/servidor/exception",payload="USER_EXC")
+        else:
+            mqttc.publish(msg.topic,payload="CONNECT_ACCEPT")
+    print("estop userdata",userdata)
+
+#
 
 ###
 
 mqttc = Client(userdata={}) #diccionario como userdata para la info del juego
+###'info' indica el estado de la partida:
+###estado: 0 es sin empezar,1 en espera,2 jugando,3 en recuento
+###alfabeto: las letras que quedan por jugar, de inicio ya están desordenadas
 
 #funciones callback:
 #mqttc.on_publish = on_publish
 mqttc.on_message = on_message
-mqttc.message_callback_add("clients/"+choques+"/jugadores/#", callback_jugadores)
-mqttc.message_callback_add("clients/"+choques+"/partidas/#", callback_partidas)
+mqttc.message_callback_add(choques+"/jugadores/#", callback_jugadores)
+mqttc.message_callback_add(choques+"/partidas/#", callback_partidas)
+mqttc.message_callback_add(choques+"/servidor/#", callback_servidor)
+mqttc.message_callback_add(choques+"/solicitudes/#", callback_solicitudes)
 
 #will_set:
 #ultimo mensaje que se envía si el Client se desconecta sin usar disconnect()
-mqttc.will_set("clients/"+choques+"/servidor",payload="SERVER_FAIL")
+mqttc.will_set(choques+"/servidor",payload="SERVER_FAIL")
 
 mqttc.connect(broker)
 
-mqttc.publish("clients/"+choques+"/servidor",payload="SERVER_READY")
+mqttc.publish(choques+"/servidor",payload="SERVER_READY")
 print("SERVIDOR ACTIVO...")
 
 #suscripciones iniciales del servidor
-mqttc.subscribe("clients/"+choques+"/solicitudes/#")
-mqttc.subscribe("clients/"+choques+"/jugadores/#")
-mqttc.subscribe("clients/"+choques+"/partidas/#")
+mqttc.subscribe(choques+"/servidor/#")
+mqttc.subscribe(choques+"/solicitudes/#")
+mqttc.subscribe(choques+"/jugadores/#")
+mqttc.subscribe(choques+"/partidas/#")
 
-#
-#
-#de momento he hecho un cliente auxiliar que maneje a los usuarios
-#creo que no hace falta separarlo, solo hay que
-#ver una manera de que la info de este userdata se pueda sacar del otro
-ccc = Client(userdata={}) #diccionario de usuarios
-ccc.message_callback_add("clients/prueba/#", callback_prueba)
-ccc.connect(broker)
-ccc.subscribe("clients/prueba/#")
-
-ccc.loop_start()
 mqttc.loop_forever()
