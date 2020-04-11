@@ -5,6 +5,7 @@ Created on Tue Apr  7 23:18:50 2020
 @author: sergi
 """
 
+
 '''
 nuevas cosas (por orden de aparición):
 choques
@@ -86,7 +87,7 @@ def calcula_puntos(ids,diccs,num_partida):
                   payload=pickle.dumps([ids,puntuaciones]))
     #preparamos la siguiente ronda
     letra=alfabeto.pop(0)
-    sleep(10)
+    sleep(30)
     mqttc.publish("clients/"+choques+"/partidas/"+str(num_partida),
                   payload="JUGAR RONDA/"+letra)
 
@@ -228,5 +229,3 @@ ccc.subscribe("clients/prueba/#")
 
 ccc.loop_start()
 mqttc.loop_forever()
-
-###

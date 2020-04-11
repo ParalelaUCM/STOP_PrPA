@@ -5,6 +5,7 @@ Created on Tue Apr  7 23:06:59 2020
 @author: sergi
 """
 
+
 '''
 nuevas cosas (por orden de aparición):
 on_connect y on_publish: los he quitado, que ya molestaban más que otra cosa
@@ -22,6 +23,7 @@ from multiprocessing import Process, Value
 from paho.mqtt.client import Client
 import paho.mqtt.publish as publish
 import pickle
+from time import sleep
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
@@ -44,14 +46,15 @@ def callback_partidas(mqttc, userdata, msg):
     spl=msg.topic.split("/") #['clients','estop','partidas','1','puntos']
     if (msg.payload == b'STOP'):
         global stop
+        if (not(stop)):
+            print("Otro jugador ha dado STOP, pulse intro para continuar")
         stop = True
-        print("Otro jugador ha dado STOP, pulse intro para continuar")
     elif msg.payload[:5]==b"JUGAR":
         spl=msg.topic.split("/") #['clients','estop','partidas','1']
         num_partida=spl[3]
         l="JUGAR RONDA" #llga un msg.payload=b"JUGAR RONDA/C"
         if str(msg.payload)[2:-3]=="JUGAR RONDA":
-            print_state("EMPIEZA UNA NUEVA RONDA", True)
+            print_state("EMPIEZA UNA NUEVA RONDA, PULSA INTRO PARA EMPEZAR", True)
             let=msg.payload[-1]
             jugar.value = 1
             letra.value = let
@@ -124,6 +127,36 @@ def insert_word(word, tema, table, letter):
             print_state("Esa palabra no empieza por " + letter, True)
     else:
         print_state("Lo siento pero alguien ya dió el STOP", True)
+    
+def new_play():
+    print_state()
+    #global stop
+    #print("\n____Empezamos nueva ronda_____\n")
+    print_state("La letra de la ronda es"+str(letra.value)[2:-1])
+    while (not(stop)):
+        #print("\n", table)
+        print_state()
+        print_state("\n¿Que tema quieres rellenar?\n(0 o STOP para parar)\n\n-> ")
+        tema = input()
+        if (not(stop)):
+            if (tema == "STOP") or (tema == "0"):
+                Stop(indice_partida.value)
+            elif (tema in table):
+                msg = "\n¿Que "+ tema + " se te ocurre con la letra "+str(letra.value)[2:-1]+"?\n('STOP' para parar, 'BACK' para elegir tema de nuevo)\n\n-> "
+                print_state(msg)
+                word = input()
+                if (word == "STOP") or (word == "0"):
+                    Stop(indice_partida.value)
+                elif (word != "BACK"):
+                    insert_word(word.lower(), tema, table, str(letra.value)[2:-1])
+                    print_state()
+                    #print('\nok')
+                    #print("\n\n____________________\n")
+            else:
+                print_state("\nEse tema no existe actualmente... Prueba de nuevo", True)
+        else:
+            print_state("Lo siento pero alguien ya dió el STOP", True)
+    print("\n____FIN DE LA RONDA___\n")
 
 
 """
@@ -136,6 +169,8 @@ import os
 def print_state(msg= "", need_verification = False):
     os.system('cls' if os.name == 'nt' else "printf '\033c'")
     if (not(need_verification)):
+        print("La letra de la ronda es "+str(letra.value)[2:-1])
+        print("")
         for key in table:
             print("|",key, "|", end =" ")
         print("")
@@ -176,7 +211,7 @@ conectado = Value('i',1)
 indice_partida = Value('i',0)
 jugar = Value('i', 0)
 letra = Value('c', b'z')
-stop = False
+#stop = False
 
 while conectado.value==1:
     while jugar.value == 0:
@@ -187,37 +222,10 @@ while conectado.value==1:
             break
     stop=False #ponemos el stop a False para las siguientes rondas
     table = init_table()
-    print_state()
-    #global stop
-    print("\n____Empezamos nueva ronda_____\n")
-    print("La letra de la ronda es",str(letra.value)[2:-1])
-    while (not(stop)):
-        print("\n", table)
-        print_state()
-        print_state("\n¿Que tema quieres rellenar?\n(0 o STOP para parar)\n\n-> ")
-        tema = input()
-        if (not(stop)):
-            if (tema == "STOP") or (tema == "0"):
-                Stop(1)
-            elif (tema in table):
-                msg = "\n¿Que "+ tema + " se te ocurre con la letra "+str(letra.value)[2:-1]+"?\n('STOP' para parar, 'BACK' para elegir tema de nuevo)\n\n-> "
-                print_state(msg)
-                word = input()
-                if (word == "STOP") or (word == "0"):
-                    Stop(1)
-                elif (word != "BACK"):
-                    insert_word(word.lower(), tema, table, str(letra.value)[2:-1])
-                    print_state()
-                    print('\nok')
-                    print("\n\n____________________\n")
-            else:
-                print_state("\nEse tema no existe actualmente... Prueba de nuevo", True)
-        else:
-            print_state("Lo siento pero alguien ya dió el STOP", True)
-    print("\n____FIN DE LA RONDA___\n")
+    new_play()
     jugar.value = 0
     #publicamos en el topic prueba, cambiarlo junto con lo del servidor
     #quiza se puede hacer un grupo nuevo de topics que sea clients/estop/puntos/3
     mqttc.publish("clients/prueba/"+str(indice_partida.value)+"/"+nombre_usuario,
                                         payload=pickle.dumps(table))
-
+    
