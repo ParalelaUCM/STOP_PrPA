@@ -51,7 +51,7 @@ def callback_partidas(mqttc, userdata, msg):
         num_partida=spl[3]
         l="JUGAR RONDA" #llga un msg.payload=b"JUGAR RONDA/C"
         if str(msg.payload)[2:-3]=="JUGAR RONDA":
-            print("EMPIEZA UNA NUEVA RONDA")
+            print_state("EMPIEZA UNA NUEVA RONDA", True)
             let=msg.payload[-1]
             jugar.value = 1
             letra.value = let
@@ -110,7 +110,7 @@ def Stop(num_partida):
     stop = True
     #mqttc.publish("clients/"+choques+"/jugadores/elisa", payload = "Sergio ha hecho Stop, pulsa intro")
     #mqttc.publish("clients/"+choques+"/partidas/"+str(num_partida), payload="STOP")
-    publish.single("clients/"+choques+"/partidas/"+str(num_partida), 
+    publish.single("clients/"+choques+"/partidas/"+str(num_partida),
                    payload="STOP", hostname="wild.mat.ucm.es")
 
 def init_table():
@@ -121,17 +121,39 @@ def insert_word(word, tema, table, letter):
         if (word[0] == letter[0]):
             table[tema] = word
         else:
-            print("Esa palabra no empieza por", letter)
+            print_state("Esa palabra no empieza por " + letter, True)
     else:
-        print("Lo siento pero alguien ya dió el STOP")
+        print_state("Lo siento pero alguien ya dió el STOP", True)
+
+
+"""
+Con esta función se borra todo lo que había en pantalla y se imprime la tabla actual.
+Si el mensaje es un error o que alguien ha dado stop o la puntuacion de la ronda se
+se pondrá a true el 'need_verification'. Esto hará que solo salga en mensaje por pantalla
+sin la tabla ni nada y que se mantenga ahi hata que se le de a enter o entre otro mensaje
+"""
+import os
+def print_state(msg= "", need_verification = False):
+    os.system('cls' if os.name == 'nt' else "printf '\033c'")
+    if (not(need_verification)):
+        for key in table:
+            print("|",key, "|", end =" ")
+        print("")
+        for key in table:
+            print("|",table[key], "|", end =" ")
+        print("")
+        print(msg, end="")
+    else:
+        print(msg, end="")
+        input()
 
 ###
-                
+
 mqttc = Client(userdata=[nombre_usuario,0]) #userdata=[nombre_usuario,puntos]
 
 #funciones callback:
 mqttc.on_message = on_message
-mqttc.on_connect = on_connect
+#mqttc.on_connect = on_connect
 mqttc.message_callback_add("clients/"+choques+"/servidor", callback_servidor)
 mqttc.message_callback_add("clients/"+choques+"/partidas/#", callback_partidas)
 
@@ -165,34 +187,37 @@ while conectado.value==1:
             break
     stop=False #ponemos el stop a False para las siguientes rondas
     table = init_table()
+    print_state()
     #global stop
     print("\n____Empezamos nueva ronda_____\n")
     print("La letra de la ronda es",str(letra.value)[2:-1])
     while (not(stop)):
         print("\n", table)
-        tema = input("\n¿Que tema quieres rellenar?\n(0 o STOP para parar)\n\n-> ")
+        print_state()
+        print_state("\n¿Que tema quieres rellenar?\n(0 o STOP para parar)\n\n-> ")
+        tema = input()
         if (not(stop)):
-            print(tema)
             if (tema == "STOP") or (tema == "0"):
                 Stop(1)
             elif (tema in table):
                 msg = "\n¿Que "+ tema + " se te ocurre con la letra "+str(letra.value)[2:-1]+"?\n('STOP' para parar, 'BACK' para elegir tema de nuevo)\n\n-> "
-                word = input(msg)
+                print_state(msg)
+                word = input()
                 if (word == "STOP") or (word == "0"):
                     Stop(1)
                 elif (word != "BACK"):
                     insert_word(word.lower(), tema, table, str(letra.value)[2:-1])
+                    print_state()
                     print('\nok')
                     print("\n\n____________________\n")
             else:
-                print("\nEse tema no existe actualmente... Prueba de nuevo")
+                print_state("\nEse tema no existe actualmente... Prueba de nuevo", True)
         else:
-            print("Lo siento pero alguien ya dió el STOP")
+            print_state("Lo siento pero alguien ya dió el STOP", True)
     print("\n____FIN DE LA RONDA___\n")
     jugar.value = 0
     #publicamos en el topic prueba, cambiarlo junto con lo del servidor
     #quiza se puede hacer un grupo nuevo de topics que sea clients/estop/puntos/3
     mqttc.publish("clients/prueba/"+str(indice_partida.value)+"/"+nombre_usuario,
                                         payload=pickle.dumps(table))
-    print("La puntuacion es pts")
-    
+

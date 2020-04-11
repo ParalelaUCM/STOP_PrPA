@@ -98,7 +98,7 @@ def callback_partidas(mqttc, userdata, msg):
     '''
     if (msg.payload == b'STOP'):
         mqttc.publish(msg.topic, payload = "Otro jugador ha hecho STOP, pulsa into para continuar")
-    else: 
+    else:
         spl=msg.topic.split("/") #spl=['clients','estop','partidas','1','jugador_x']
         if len(spl)==5 and spl[4]!="puntos":
             num_partida=spl[3]
@@ -191,13 +191,13 @@ def callback_prueba(ccc, userdata, msg):
         calcula_puntos(ids,diccs,spl[2])
         userdata={}
         sleep(5)
-    
+
 ###
 
 mqttc = Client(userdata={}) #diccionario como userdata para la info del juego
 
 #funciones callback:
-mqttc.on_publish = on_publish
+#mqttc.on_publish = on_publish
 mqttc.on_message = on_message
 mqttc.message_callback_add("clients/"+choques+"/jugadores/#", callback_jugadores)
 mqttc.message_callback_add("clients/"+choques+"/partidas/#", callback_partidas)
