@@ -1,33 +1,22 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Apr  7 23:06:59 2020
-
-@author: sergi
-"""
 
 '''
-nuevas cosas (por orden de aparición):
-on_connect y on_publish: los he quitado, que ya molestaban más que otra cosa
-choques
-Values globales: conectado, indice_partida,letra,jugar
-las letras ya cambian (aunque eso lo envía el servidor)
-se activan la ronda siguiente justo después del recuento de puntos
-while True del final, cambiado por el Value conectado, para que salga del bucle si
-por lo que sea se va el jugador
-opcion adicional para hacer STOP: darle al 0, que es más rápido
+pongo con tres almohadillas los nuevos comentarios (###)
+###
+he metido los sleep en el cliente, para que el servidor no tenga delays indeseados
 '''
 
 
-from multiprocessing import Process, Value
+from multiprocessing import Value ###Process no lo usamos
 from paho.mqtt.client import Client
 import paho.mqtt.publish as publish
-import pickle
+import pickle ###para el envío de listas y diccionarios
 from time import sleep
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop" #topic=choques+"/servidor...
-#para evitar que coincidamos en el broker, cada uno que ponga uno
+choques="clients/estop5" #topic=choques+"/servidor...
+###choques: para evitar colisiones en el broker en las pruebas
 
 nombre_usuario=input("¿nombre usuario? ")
 
@@ -40,7 +29,7 @@ def Stop(num_partida):
                    payload="STOP", hostname=broker)
 
 def init_table():
-    return ({"comida": None, "pais": None, "ciudad": None})
+    return ({"comida": None, "pais": None, "ciudad": None, "apellido": None})
 
 def insert_word(word, tema, table, letter):
     if (not(stop)):
@@ -61,41 +50,48 @@ import os
 def print_state(msg= "", need_verification = False):
     os.system('cls' if os.name == 'nt' else "printf '\033c'")
     if (not(need_verification)):
+        print("la",str(letra.value)[2:-1]) ###imprimimos la letra actual
+        ### para que salga en horizontal, lo veo más intuitivo
         for key in table:
-            print("|",key, "|", end =" ")
+            print("__",key, "__", table[key],end ="\n")
         print("")
+        '''
         for key in table:
             print("|",table[key], "|", end =" ")
         print("")
+        '''
         print(msg, end="")
     else:
         print(msg, end="")
         input()
 
 def callback_partidas(mqttc, userdata, msg):
-    spl=msg.topic.split("/") #['clients','estop','partidas','1','puntos']
-    if len(spl)==5 and spl[4]=="puntos": #llegan las puntuaciones con el pickle
-        #falta ver como mostrar las puntuacioines totales de todos, no solo de la ronda
+    spl=msg.topic.split("/") #['clients','estop','partidas','1','puntosR']
+    if len(spl)==5 and spl[4]=="puntos":
+        ###imprimimos las puntuaciones después de cada ronda
         datos=pickle.loads(msg.payload)
-        print("PUNTUACIONES RONDA")
+        print("PUNTUACIONES | RONDA | TOTALES")
         for ii in range(len(datos[0])):
-            print(datos[0][ii],":",datos[1][ii])
+            print(datos[0][ii],"\t\t",datos[1][ii],"\t",datos[2][ii])
             if datos[0][ii]==userdata[0]:
                 userdata[1]+=datos[1][ii]
         print("MIS PUNTOS TOTALES",userdata[1])
 
 def on_message(mqttc, userdata, msg):
     print("MESSAGE:", userdata, msg.topic, msg.qos, msg.payload, msg.retain)
-
+    ###al final no usamos el on_message pues hemos definido todo en callbacks
+    ###separadas para mayor claridad
 #
 def callback_jugadores(mqttc, userdata, msg):
     #topic: ['clients','estop','jugadores','usuario']
     l=len("NUEVA_PARTIDA") #llega el msg.payload=b"NUEVA_PARTIDA 3"
     mensaje=str(msg.payload)[2:-1]
+    ###distinguimos todos los casos de los mensajes que llegan del servidor
+    ###todos en mayusculas para saber que son como "claves"
     #
     if mensaje[:l]=="NUEVA_PARTIDA":
         num_partida=mensaje[l+1:]
-        #no nos suscribimos a la partida,solo a los puntos
+        ###no nos suscribimos a la partida,solo a los puntos
         ###mqttc.subscribe(choques+"/partidas/"+num_partida)
         mqttc.subscribe(choques+"/partidas/"+num_partida+"/puntos")
         indice_partida.value=1
@@ -126,22 +122,29 @@ def callback_jugadores(mqttc, userdata, msg):
         print("Aún no hay jugadores suficientes para esta partida...")
     #
     elif mensaje[:5]=="READY":
-        sleep(5) #cuanto esperamos para admitir nueeva gente
+        print("La siguiente letra es...")
+        sleep(3) ###cuanto esperamos para admitir nueeva gente
         mqttc.publish(choques+"/partidas/"+str(userdata[2]),payload="READY_YES")
     #
     elif mensaje[:4]=="PLAY": #ahora llega algo como PLAY-R
         let=ord(mensaje[-1])
         letra.value = let
-        print_state("EMPIEZA UNA NUEVA RONDA CON LA LETRA "+chr(let), True)
+        #print_state("EMPIEZA UNA NUEVA RONDA CON LA LETRA "+chr(let), True)
         jugar.value = 1
     #
-    elif (msg.payload == b'STOP'):
+    elif msg.payload == b'STOP':
         global stop
-        if stop!=True: #este jugador no ha hecho stop
+        if stop!=True: ###este jugador no ha hecho stop
             stop = True
             print("Otro jugador ha dado STOP, pulse intro para continuar")
-        else: #este jugador ha hecho stop
+        else: ###este jugador ha hecho stop
             pass
+    '''
+    esto no lo estamos usando
+    elif msg.payload == b'RECUENTO':
+        mqttc.publish(choques+"/partidas/"+userdata[2]+"/puntos/"+userdata[0],
+                      payload=userdata[1])
+    '''
 
 def callback_servidor(mqttc, userdata, msg):
     #maneja las desconexiones inesperadas del servidor
@@ -157,8 +160,8 @@ def callback_servidor(mqttc, userdata, msg):
     elif msg.payload==b"CONNECT_ACCEPT":
         print("SERVIDOR ACTIVO")
         mqttc.unsubscribe(choques+"/servidor/exception")
-        #si aceptan al jugador, nos desuscribimos de exception
-        #y enviamos la solicitud de acceso a la partida con nuestro nombre
+        ###si aceptan al jugador, nos desuscribimos de exception
+        ###y enviamos la solicitud de acceso a la partida con nuestro nombre
         mqttc.publish(choques+"/solicitudes",payload=userdata[0])
     elif msg.payload==b"USER_EXC":
         print("Usuario no válido o ya registrado")
@@ -168,7 +171,7 @@ def callback_servidor(mqttc, userdata, msg):
 
 ###################################################
 
-mqttc = Client(userdata=[nombre_usuario,0,0]) #userdata=[nombre_usuario,puntos,partida]
+mqttc = Client(userdata=[nombre_usuario,0,0]) #userdata=[nombre_usuario,puntos,num_partida]
 
 #funciones callback:
 mqttc.on_message = on_message
@@ -211,7 +214,7 @@ while conectado.value==1:
         pass
     if conectado.value==0:
             break
-    stop=False #ponemos el stop a False para las siguientes rondas
+    stop=False ###ponemos el stop a False para las siguientes rondas
     table = init_table()
     print_state()
     print("\n____Empezamos nueva ronda_____\n")
@@ -241,5 +244,6 @@ while conectado.value==1:
             print_state("Lo siento pero alguien ya dió el STOP", True)
     print("\n____FIN DE LA RONDA___\n")
     jugar.value = 0
+    ###publicamos las categorias para que trabaje el servidor con ellas
     publish.single(choques+"/partidas/"+str(indice_partida.value)+"/"+nombre_usuario,
                    payload=pickle.dumps(table),hostname=broker)
