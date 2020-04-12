@@ -46,19 +46,22 @@ class Player:
     #Funcion que calcula la puntuacion en base a los rivales
     def calculate_score(self, rivals):
         for key in self.table:
-            filled = (self.table[key] != None) and (self.table[key] != "") #Comprobamos que este rellenado ese tema
-            if (filled):
-                unique = True
-                #Buscamos si la palabra es unica o no para calcular la puntuacion
-                for rival in rivals:
-                    if (rival.id != self.id):
-                        unique = (self.table[key] != rival.table[key])
-                        if (not(unique)):
-                            break
-                if (unique):
-                    self.score += 25 # 25 pts si es unica
-                else:
-                    self.score += 10 # 10 pts si esta repetida
+            if key!='puntos':
+                filled = (self.table[key] != None) and (self.table[key] != "") #Comprobamos que este rellenado ese tema
+                if (filled):
+                    unique = True
+                    #Buscamos si la palabra es unica o no para calcular la puntuacion
+                    for rival in rivals:
+                        if (rival.id != self.id):
+                            unique = (self.table[key] != rival.table[key])
+                            if (not(unique)):
+                                break
+                    if (unique):
+                        self.score += 25 # 25 pts si es unica
+                    else:
+                        self.score += 10 # 10 pts si esta repetida
+            else: #la clave son los puntos que tiene hasta ahora
+                pass            
         return (self.score) #Para comprobar que funciona
 
 #
@@ -69,29 +72,31 @@ def calcula_puntos(ids,diccs,num_partida,userdata):
     diccs: lista de diccionarios con las respuestas de cada usuario
     num_partida de los usuarios
     '''
-    puntuacionesR=[] #puntuaciones de la ronda
+    puntuacionesIniciales=[] #puntuaciones al inicio de la ronda
     ldp=[] #lista de Players
     print("\nRespuestas de la ronda:")
     for i in range(len(ids)):
-        ldp.append(Player(ids[i],diccs[i]))
-        print(ids[i],":",diccs[i])
+        puntuacionesIniciales.append(diccs[i]['puntos'])
+        #
+        p=Player(ids[i],diccs[i]) #el player actual
+        p.score=diccs[i]['puntos'] #cogemos los puntos suyos actuales
+        ldp.append(p)
+    #
+    puntuacionesFinales=[] #puntuaciones al final de la ronda
     for i in range(len(ldp)):
         jugador=ldp[i]
-        #p2.calculate_score([p1, p2]) ejemplo
         puntos=jugador.calculate_score(ldp)
-        puntuacionesR.append(puntos)
-    print("Puntuaciones de la ronda")
-    puntuacionesTotales=[]
+        #
+        puntuacionesFinales.append(puntos)
+        userdata[int(num_partida)][ids[i]]['puntos']=puntos #actualizamos los puntos
+        print(ids[i],puntos)
+    #
+    puntuacionesRonda=[] #puntuaciones de la ronda en sí
     for i in range(len(ids)):
-        print(userdata[int(num_partida)][ids[i]])
-        p=puntuacionesR[i]+userdata[int(num_partida)][ids[i]]['puntos']
-        print(p)
-        userdata[int(num_partida)][ids[i]]['puntos']=p
-        puntuacionesTotales.append(p)
-        print(ids[i],":",puntuacionesR[i],p)
+        puntuacionesRonda.append(puntuacionesFinales[i]-puntuacionesIniciales[i])
     #publicamos resultados a los usuarios:
     mqttc.publish(choques+"/partidas/"+str(num_partida)+"/puntos",
-                  payload=pickle.dumps([ids,puntuacionesR,puntuacionesTotales]))
+                  payload=pickle.dumps([ids,puntuacionesRonda,puntuacionesFinales]))
 
 #
 def callback_partidas(mqttc, userdata, msg):

@@ -116,7 +116,7 @@ def callback_partidas(mqttc, userdata, msg):
             if datos[0][ii]==userdata[0]:
                 userdata[1]+=datos[1][ii]
         print("MIS PUNTOS TOTALES",userdata[1])
-        sleep(10) #elisa: He puesto este sleep, porque se iba super rápido, y no daba tiempo a leer bien las puntuaciones.
+        sleep(5) #elisa: He puesto este sleep, porque se iba super rápido, y no daba tiempo a leer bien las puntuaciones.
 
 def on_message(mqttc, userdata, msg):
     print("MESSAGE:", userdata, msg.topic, msg.qos, msg.payload, msg.retain)
