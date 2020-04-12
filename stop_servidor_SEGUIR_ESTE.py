@@ -1,20 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Apr 12 09:32:31 2020
+Created on Sun Apr 12 18:57:28 2020
 
-@author: ELISA
+@author: sergi
 """
-
-# -*- coding: utf-8 -*-
 
 '''
 pongo con tres almohadillas los nuevos comentarios (###)
 ###
+->Ya funciona que un jugador se una tarde, primero le meto en los datos de la partida
+    1 y ya luego si se ha unido tarde le elimino y lo meto en la lista de espera.
+###
+##
 el userdata es un diccionario de partidas:
 ->en cada partida se guarda un diccionario con:
 -->los nombres de los jugadores: diccionario con las respuestas
 -->'info':diccionario con el estado de la partida y el alfabeto
-###
+##
 los sleep deberían estar todos en el cliente, pues el servidor no puede
 pararse ya que igual atiende a más partidas
 '''
@@ -119,8 +121,9 @@ def callback_partidas(mqttc, userdata, msg):
             for clave,valor in mensaje.items():
                 userdata[indice_partida][spl[4]][clave]=valor
             userdata[indice_partida]['info']['confirmados']+=1
-            cuantos=len(userdata[indice_partida])-1 ###cuantos jugadores
-            if cuantos==userdata[indice_partida]['info']['confirmados']:
+            cuantos=len(userdata[indice_partida])-1 ###cuantos jugadores hay
+            #en_espera = len(userdata[indice_partida]['info']['lista_espera'])
+            if (cuantos == userdata[indice_partida]['info']['confirmados']):
                 ###cuando ha llegado la info de todos los jugadores,
                 ###calculamos los puntos
                 userdata[indice_partida]['info']['confirmados']=0
@@ -134,6 +137,9 @@ def callback_partidas(mqttc, userdata, msg):
                 calcula_puntos(ids,diccs,spl[3],userdata)
         elif spl[4]=="puntos": #['clients','estop','partidas','1','puntos']
             ###se han publicado los puntos, y preparamos la siguiente ronda
+            for jugador in userdata[indice_partida]['info']['lista_espera']:
+                userdata[indice_partida][jugador]={'puntos':0}
+            userdata[indice_partida]['info']['lista_espera'] = []
             userdata[indice_partida]['info']['estado']=1 #estado: en espera
             for jugador in userdata[indice_partida]:
                 mqttc.publish(choques+"/jugadores/"+jugador,payload="READY")    
@@ -168,7 +174,7 @@ def callback_solicitudes(mqttc, userdata, msg):
             mqttc.publish(choques+"/jugadores/"+usuario,payload="NUEVA_PARTIDA 1")
             alf=alfabeto.copy() ###hacemos una copia del alfabeto
             ###inicializamos el userdata
-            userdata[1]={"info":{'estado':0,'alfabeto':alf,'confirmados':0},
+            userdata[1]={"info":{'estado':0,'alfabeto':alf,'confirmados':0,'lista_espera':[]},
                          usuario:{'puntos':0}}
         else:
             #si hay alguna partida, deja al usuario elegir entre nueva o cargar
@@ -191,24 +197,30 @@ def callback_solicitudes(mqttc, userdata, msg):
                           payload="NUEVA_PARTIDA "+str(p_libre))
             alf=alfabeto.copy() ###hacemos una copia del alfabeto
             ###inicializamos el userdata
-            userdata[p_libre]={"info":{'estado':0,'alfabeto':alf,'confirmados':0}
+            userdata[p_libre]={"info":{'estado':0,'alfabeto':alf,'confirmados':0,'lista_espera':[]}
                                ,usuario:{'puntos':0}}
         else:
             indice_partida=int(str(msg.payload)[2:-1])
-            userdata[indice_partida][usuario]={'puntos':0}
+            userdata[indice_partida][usuario]={'puntos':0} #Añadimos siempre al usuario, pero si se une tarde hay que eliminarle abajo
             #decidimos cuando empezar la partida, según los usuarios apuntados
             ###esto hay que mirarlo:
             if len(userdata[indice_partida])-1 < min_jugadores_partida:
+                #userdata[indice_partida][usuario]={'puntos':0} Por si preferimos añadirlos cuando sepamos que podemos
                 #no hay jugadores suficientes
                 for jugador in userdata[indice_partida]:
                     mqttc.publish(choques+"/jugadores/"+jugador,payload="NOT_INOF")
             elif len(userdata[indice_partida])-1 == min_jugadores_partida:
+                #userdata[indice_partida][usuario]={'puntos':0}
                 #ya hay jugadores suficientes
                 #el sleep ha pasado al cliente
                 userdata[indice_partida]['info']['estado']=1 #estado: en espera
                 for jugador in userdata[indice_partida]:
                     mqttc.publish(choques+"/jugadores/"+jugador,payload="READY")
-            else:
+            elif userdata[indice_partida]['info']['estado'] >= 2:
+                userdata[indice_partida]['info']['lista_espera'].append(usuario)
+                userdata[indice_partida].pop(usuario) #Eliminamos al usuario que se ha unido tarde
+                mqttc.publish(choques+"/jugadores/"+usuario, payload="WAIT")
+                print("Hay un jugador en espera")
                 #falta el caso en el que se conecta uno más tarde
                 #de momento creo que es mejor que funcione como una partida
                 #normal en la que todos los jugadores están desde el principio

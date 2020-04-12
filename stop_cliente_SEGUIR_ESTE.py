@@ -1,17 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Apr 12 09:31:35 2020
+Created on Sun Apr 12 17:51:40 2020
 
-@author: ELISA
+@author: sergi
 """
-
-# -*- coding: utf-8 -*-
-
 '''
 pongo con tres almohadillas los nuevos comentarios (###)
 ###
 he metido los sleep en el cliente, para que el servidor no tenga delays indeseados
-
 pongo mis comentarios uevos con #elisa:
 '''
 
@@ -38,7 +34,8 @@ def Stop(num_partida):
                    payload="STOP", hostname=broker)
 
 def init_table():
-    return ({"comida": None, "pais": None, "ciudad": None, "apellido": None})
+    return ({"nombre": None, "animal": None, "comida": None, "pais": None, "ciudad": None, 
+             "famos@": None})
 
 def insert_word(word, tema, table, letter):
     if (not(stop)):
@@ -68,7 +65,7 @@ def new_play():
                 word = input()
                 if (word == "STOP") or (word == "0"):
                     Stop(indice_partida.value)
-                elif (word != "BACK"):
+                elif (word != "BACK") and (word != ""):
                     insert_word(word.lower(), tema, table, str(letra.value)[2:-1])
                     print_state()
                     #print('\nok')
@@ -173,6 +170,9 @@ def callback_jugadores(mqttc, userdata, msg):
         #print_state("EMPIEZA UNA NUEVA RONDA CON LA LETRA "+chr(let), True)
         jugar.value = 1
     #
+    elif mensaje == "WAIT":
+        print("Partida en marcha, esperando a que empiece la siguiente ronda")
+    #
     elif msg.payload == b'STOP':
         global stop
         if stop!=True: ###este jugador no ha hecho stop
@@ -260,5 +260,7 @@ while conectado.value==1:
     new_play()
     jugar.value = 0
     ###publicamos las categorias para que trabaje el servidor con ellas
-    publish.single(choques+"/partidas/"+str(indice_partida.value)+"/"+nombre_usuario,
-                   payload=pickle.dumps(table),hostname=broker)
+    mqttc.publish(choques+"/partidas/"+str(indice_partida.value)+"/"+nombre_usuario,
+                  payload = pickle.dumps(table))
+    #publish.single(choques+"/partidas/"+str(indice_partida.value)+"/"+nombre_usuario,
+     #              payload=pickle.dumps(table),hostname=broker)
