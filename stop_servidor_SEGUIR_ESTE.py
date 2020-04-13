@@ -69,7 +69,7 @@ class Player:
                     else:
                         self.score += 10 # 10 pts si esta repetida
             else: #la clave son los puntos que tiene hasta ahora
-                pass            
+                pass
         return (self.score) #Para comprobar que funciona
 
 #
@@ -148,7 +148,7 @@ def callback_partidas(mqttc, userdata, msg):
             userdata[indice_partida]['info']['lista_espera'] = []
             userdata[indice_partida]['info']['estado']=1 #estado: en espera
             for jugador in userdata[indice_partida]:
-                mqttc.publish(choques+"/jugadores/"+jugador,payload="READY")    
+                mqttc.publish(choques+"/jugadores/"+jugador,payload="READY")
 
 def callback_jugadores(mqttc, userdata, msg):
     #maneja las desconexiones inesperadas de los jugadores
@@ -215,7 +215,7 @@ def callback_solicitudes(mqttc, userdata, msg):
                 #no hay jugadores suficientes
                 for jugador in userdata[indice_partida]:
                     mqttc.publish(choques+"/jugadores/"+jugador,payload="NOT_INOF")
-            elif len(userdata[indice_partida])-1 == min_jugadores_partida:
+            elif userdata[indice_partida]['info']['estado'] < 2:
                 #userdata[indice_partida][usuario]={'puntos':0}
                 #ya hay jugadores suficientes
                 #el sleep ha pasado al cliente

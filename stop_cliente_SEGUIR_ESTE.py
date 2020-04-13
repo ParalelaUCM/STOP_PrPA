@@ -32,6 +32,45 @@ choques="clients/estop" #topic=choques+"/servidor...
 
 nombre_usuario=input("¿nombre usuario? ")
 
+"""
+Con esta función se borra todo lo que había en pantalla y se imprime la tabla actual.
+Si el mensaje es un error o que alguien ha dado stop o la puntuacion de la ronda se
+se pondrá a true el 'need_verification'. Esto hará que solo salga en mensaje por pantalla
+sin la tabla ni nada y que se mantenga ahi hata que se le de a enter o entre otro mensaje
+"""
+import os
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+def print_state(msg= "", need_verification = False, print_table = True):
+    os.system('cls' if os.name == 'nt' else "printf '\033c'")
+    if (not(need_verification) and print_table):
+        print("La letra de esta ronda es la ",str(letra.value)[2:-1].upper()) ###imprimimos la letra actual
+        ### para que salga en horizontal, lo veo más intuitivo
+        i = 1
+        for key in table:
+            print(bcolors.WARNING + "["+ str(i)+ "]" +bcolors.ENDC, key.upper(), " : ",end ="")
+            if (table[key] != None):
+                print(bcolors.UNDERLINE+  table[key] + bcolors.ENDC)
+            else:
+                print("________")
+            i += 1
+        print("")
+        print("Parar el juego: 'STOP' / '0'\nSalir de la partida: 'EXIT' / '!'")
+        print(msg, end="")
+    else:
+        print(msg, end="")
+    if (need_verification):
+        input()
+
 def Stop(num_partida):
     global stop
     stop = True
@@ -41,17 +80,26 @@ def Stop(num_partida):
                    payload="STOP", hostname=broker)
 
 def init_table():
-    return ({"nombre": None, "animal": None, "comida": None, "pais": None, "ciudad": None, 
+    return ({"nombre": None, "animal": None, "comida": None, "pais": None, "ciudad": None,
              "famos@": None})
 
 def insert_word(word, tema, table, letter):
     if (not(stop)):
-        if (word[0] == letter[0]):
-            table[tema] = word
+        if (word[0].upper() == letter[0].upper()):
+            table[tema.lower()] = word.upper()
         else:
-            print_state("Esa palabra no empieza por " + letter, True)
-    #else:
-        #print_state("Lo siento pero alguien ya dió el STOP", True) #elisa: lo quito porque salía dos veces.
+            print_state("Esa palabra no empieza por " + letter.upper(), True, True)
+
+def fit_theme(tema):
+    lst = ["0","nombre", "animal", "comida", "pais", "ciudad", "famos@"]
+    try:
+        index = int(tema)
+    except:
+        return tema
+    if (0 <= index and index < len(lst)):
+        return (lst[index])
+    else:
+        return("ERROR")
 
 def new_play():
     print_state()
@@ -61,68 +109,44 @@ def new_play():
     salir = False
     while (not(stop) and not(salir)) :
         #print("\n", table)
-        print_state()
-        print_state("\n¿Que tema quieres rellenar?\n(0 o STOP para parar,'EXIT' O 1 para salir )\n\n-> ")
+        print_state("\n¿Que tema quieres rellenar?\n\n-> ")
         tema = input()
+        tema = fit_theme(tema)
         if (not(stop)):
-            if (tema == "STOP") or (tema == "0"):
+            if (conectado.value == 0):
+                return
+            if (tema.upper() == "STOP") or (tema == "0"):
                 Stop(indice_partida.value)
-            elif (tema=="EXIT") or (tema == "1"):
+            elif (tema.upper() =="EXIT") or (tema == "!"):
                 salir = True
                 conectado.value=0
                 mqttc.publish(choques+"/jugadores/"+nombre_usuario, payload = "DISCONNECT")
                 mqttc.disconnect()
-                print("\n____ADIOS___\n")
-            elif (tema in table):
-                msg = "\n¿Que "+ tema + " se te ocurre con la letra "+str(letra.value)[2:-1]+"?\n('STOP' para parar, 'BACK' para elegir tema de nuevo, 'EXIT' O 1 para salir)\n\n-> "
+                print_state("\n____ADIOS___\n", True, False)
+            elif (tema.lower() in table):
+                msg = "\n¿Que "+ tema.upper() + " se te ocurre con la letra "+ str(letra.value)[2:-1].upper()+"?\n\n-> "
                 print_state(msg)
                 word = input()
-                if (word == "STOP") or (word == "0"):
+                if (tema.upper() == "STOP") or (tema == "0"):
                     Stop(indice_partida.value)
-                elif (word=="EXIT") or (word == "1"):
+                elif (tema.upper() =="EXIT") or (tema == "!"):
                     salir = True
                     conectado.value=0
                     mqttc.publish(choques+"/jugadores/"+nombre_usuario, payload = "DISCONNECT")
                     mqttc.disconnect()
-                    print("\n____ADIOS___\n")
-                elif (word != "BACK") and (word != ""):
-                    insert_word(word.lower(), tema, table, str(letra.value)[2:-1])
+                    print_state("\n____ADIOS___\n", True, False)
+                elif (word != "BACK") and (word != "<" and len(word)>1):
+                    insert_word(word, tema, table, str(letra.value)[2:-1])
                     print_state()
-                    #print('\nok')
-                    #print("\n\n____________________\n")
-                
-            elif (tema!=""):
+                elif (len(word) <= 1):
+                    print_state("Eso no es una palabra, es una simple letra...", True, False)
+            else:
                 print_state("\nEse tema no existe actualmente... Prueba de nuevo", True)
         else:
             pass
             #print_state("Lo siento pero alguien ya dió el STOP", True)
     if not(salir):
         print("\n____FIN DE LA RONDA___\n")
-
-"""
-Con esta función se borra todo lo que había en pantalla y se imprime la tabla actual.
-Si el mensaje es un error o que alguien ha dado stop o la puntuacion de la ronda se
-se pondrá a true el 'need_verification'. Esto hará que solo salga en mensaje por pantalla
-sin la tabla ni nada y que se mantenga ahi hata que se le de a enter o entre otro mensaje
-"""
-import os
-def print_state(msg= "", need_verification = False):
-    os.system('cls' if os.name == 'nt' else "printf '\033c'")
-    if (not(need_verification)):
-        print("la",str(letra.value)[2:-1]) ###imprimimos la letra actual
-        ### para que salga en horizontal, lo veo más intuitivo
-        for key in table:
-            print("__",key, "__", table[key],end ="\n")
-        print("")
-        '''
-        for key in table:
-            print("|",table[key], "|", end =" ")
-        print("")
-        '''
-        print(msg, end="")
-    else:
-        print(msg, end="")
-        input()
 
 def callback_partidas(mqttc, userdata, msg):
     spl=msg.topic.split("/") #['clients','estop','partidas','1','puntosR']
@@ -155,8 +179,8 @@ def callback_jugadores(mqttc, userdata, msg):
         ###mqttc.subscribe(choques+"/partidas/"+num_partida)
         mqttc.subscribe(choques+"/partidas/"+num_partida+"/puntos")
         indice_partida.value=1
-        print("Has creado la partida "+num_partida)
         userdata[2]=int(num_partida)
+        print_state("Has creado la partida "+num_partida, need_verification=True) ###Para que se vea mas claro
         print("Esperando a más jugadores...")
     #
     l=len("NUEVA [0] o CARGAR") #llega el msg.payload=b"NUEVA [0] o CARGAR [1,3]"
@@ -193,13 +217,13 @@ def callback_jugadores(mqttc, userdata, msg):
         jugar.value = 1
     #
     elif mensaje == "WAIT":
-        print("Partida en marcha, esperando a que empiece la siguiente ronda")
+        print_state("Partida en marcha, esperando a que empiece la siguiente ronda",False,False)
     #
     elif msg.payload == b'STOP':
         global stop
         if stop!=True: ###este jugador no ha hecho stop
             stop = True
-            print("Otro jugador ha dado STOP, pulse intro para continuar")
+            print_state("Otro jugador ha dado STOP, pulse intro para continuar", False, False)
         else: ###este jugador ha hecho stop
             pass
     '''
