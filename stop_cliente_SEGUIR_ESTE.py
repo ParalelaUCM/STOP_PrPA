@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Apr 13 08:38:47 2020
-
 @author: ELISA
 """
 
@@ -10,6 +9,7 @@ Created on Mon Apr 13 08:38:47 2020
 Created on Sun Apr 12 17:51:40 2020
 @author: sergi
 """
+
 '''
 pongo con tres almohadillas los nuevos comentarios (###)
 ###
@@ -27,7 +27,7 @@ from random import random
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop" #topic=choques+"/servidor...
+choques="clients/estop155" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 nombre_usuario=input("¿nombre usuario? ")
@@ -91,7 +91,9 @@ def insert_word(word, tema, table, letter):
             print_state("Esa palabra no empieza por " + letter.upper(), True, True)
 
 def fit_theme(tema):
-    lst = ["0","nombre", "animal", "comida", "pais", "ciudad", "famos@"]
+    #lst = ["0","nombre", "animal", "comida", "pais", "ciudad", "famos@"]
+    lst = list(init_table.items())
+    lst = ["0"]+lst
     try:
         index = int(tema)
     except:
@@ -144,7 +146,7 @@ def new_play():
                 print_state("\nEse tema no existe actualmente... Prueba de nuevo", True)
         else:
             pass
-            #print_state("Lo siento pero alguien ya dió el STOP", True)
+            print_state("Lo siento pero alguien ya dió el STOP", True, False)
     if not(salir):
         print("\n____FIN DE LA RONDA___\n")
 
@@ -178,9 +180,9 @@ def callback_jugadores(mqttc, userdata, msg):
         ###no nos suscribimos a la partida,solo a los puntos
         ###mqttc.subscribe(choques+"/partidas/"+num_partida)
         mqttc.subscribe(choques+"/partidas/"+num_partida+"/puntos")
-        indice_partida.value=1
+        indice_partida.value=int(num_partida)
         userdata[2]=int(num_partida)
-        print_state("Has creado la partida "+num_partida, need_verification=True) ###Para que se vea mas claro
+        print_state("Has creado la partida "+num_partida+"\n", False, False) ###Para que se vea mas claro
         print("Esperando a más jugadores...")
     #
     l=len("NUEVA [0] o CARGAR") #llega el msg.payload=b"NUEVA [0] o CARGAR [1,3]"
@@ -196,7 +198,7 @@ def callback_jugadores(mqttc, userdata, msg):
             indice_partida.value=int(eleccion)
             userdata[2]=int(eleccion)
             mqttc.publish(choques+"/solicitudes/"+userdata[0],payload=eleccion)
-            print("Consigues entrar en la partida",eleccion)
+            print_state("Consigues entrar en la partida "+str(eleccion)+"\n", False, False)
         else: #si elige algo raro, se le echa del juego
             print("No existe esa partida")
             conectado.value=0
@@ -207,7 +209,7 @@ def callback_jugadores(mqttc, userdata, msg):
     #
     elif mensaje[:5]=="READY":
         print("La siguiente letra es...")
-        sleep(3) ###cuanto esperamos para admitir nueeva gente
+        sleep(10) ###cuanto esperamos para admitir nueeva gente
         mqttc.publish(choques+"/partidas/"+str(userdata[2]),payload="READY_YES")
     #
     elif mensaje[:4]=="PLAY": #ahora llega algo como PLAY-R
@@ -217,7 +219,7 @@ def callback_jugadores(mqttc, userdata, msg):
         jugar.value = 1
     #
     elif mensaje == "WAIT":
-        print_state("Partida en marcha, esperando a que empiece la siguiente ronda",False,False)
+        print("Partida en marcha, esperando a que empiece la siguiente ronda")
     #
     elif msg.payload == b'STOP':
         global stop
@@ -251,9 +253,14 @@ def callback_servidor(mqttc, userdata, msg):
         ###y enviamos la solicitud de acceso a la partida con nuestro nombre
         mqttc.publish(choques+"/solicitudes",payload=userdata[0])
     elif msg.payload==b"USER_EXC":
+        """
         print("Usuario no válido")
-        conectado.value=0
-        mqttc.disconnect()
+        print("Prueba otro usuario que no este en uso")
+        nombre_usuario=input("¿nombre usuario? ")
+        mqttc.reinitialise(clean_session=True, userdata=None)
+        mqttc.publish(choques+"/servidor/"+nombre_usuario,payload="CONNECT_REQUEST")
+        #conectado.value=0
+        #mqttc.disconnect()"""
     """
     esto lo había puesto para distingui el caso.
     elif msg.payload==b"REPEATED_USER":

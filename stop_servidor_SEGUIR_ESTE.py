@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Apr 13 08:39:08 2020
-
 @author: ELISA
 """
 
@@ -35,7 +34,7 @@ import pickle
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop" #topic=choques+"/servidor...
+choques="clients/estop155" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas
