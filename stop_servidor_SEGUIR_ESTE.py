@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Apr 12 18:57:28 2020
+Created on Mon Apr 13 08:39:08 2020
 
+@author: ELISA
+"""
+
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Apr 12 18:57:28 2020
 @author: sergi
 """
 
@@ -29,7 +35,7 @@ import pickle
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop6" #topic=choques+"/servidor...
+choques="clients/estop" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas
@@ -247,6 +253,9 @@ def callback_servidor(mqttc, userdata, msg):
         if (usuario=="") or (usuario=="info") or ya_registrado or (usuario=="puntos"):
             ###cosas que no aceptamos como nombre_usuario
             mqttc.publish(choques+"/servidor/exception",payload="USER_EXC")
+        #Para distinguir ese caso.
+        #if ya_registrado:
+            #mqttc.publish(choques+"/servidor/exception",payload="REPEATED_USER")
         else:
             ###aceptamos al usuario
             mqttc.publish(msg.topic,payload="CONNECT_ACCEPT")

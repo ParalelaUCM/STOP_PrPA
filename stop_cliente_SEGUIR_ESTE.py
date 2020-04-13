@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Apr 12 17:51:40 2020
+Created on Mon Apr 13 08:38:47 2020
 
+@author: ELISA
+"""
+
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Apr 12 17:51:40 2020
 @author: sergi
 """
 '''
@@ -17,10 +23,11 @@ from paho.mqtt.client import Client
 import paho.mqtt.publish as publish
 import pickle ###para el envío de listas y diccionarios
 from time import sleep
+from random import random
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop6" #topic=choques+"/servidor...
+choques="clients/estop" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 nombre_usuario=input("¿nombre usuario? ")
@@ -51,31 +58,46 @@ def new_play():
     #global stop
     #print("\n____Empezamos nueva ronda_____\n")
     #print_state("La letra de la ronda es"+str(letra.value)[2:-1])
-    while (not(stop)):
+    salir = False
+    while (not(stop) and not(salir)) :
         #print("\n", table)
         print_state()
-        print_state("\n¿Que tema quieres rellenar?\n(0 o STOP para parar)\n\n-> ")
+        print_state("\n¿Que tema quieres rellenar?\n(0 o STOP para parar,'EXIT' O 1 para salir )\n\n-> ")
         tema = input()
         if (not(stop)):
             if (tema == "STOP") or (tema == "0"):
                 Stop(indice_partida.value)
+            elif (tema=="EXIT") or (tema == "1"):
+                salir = True
+                conectado.value=0
+                mqttc.publish(choques+"/jugadores/"+nombre_usuario, payload = "DISCONNECT")
+                mqttc.disconnect()
+                print("\n____ADIOS___\n")
             elif (tema in table):
-                msg = "\n¿Que "+ tema + " se te ocurre con la letra "+str(letra.value)[2:-1]+"?\n('STOP' para parar, 'BACK' para elegir tema de nuevo)\n\n-> "
+                msg = "\n¿Que "+ tema + " se te ocurre con la letra "+str(letra.value)[2:-1]+"?\n('STOP' para parar, 'BACK' para elegir tema de nuevo, 'EXIT' O 1 para salir)\n\n-> "
                 print_state(msg)
                 word = input()
                 if (word == "STOP") or (word == "0"):
                     Stop(indice_partida.value)
+                elif (word=="EXIT") or (word == "1"):
+                    salir = True
+                    conectado.value=0
+                    mqttc.publish(choques+"/jugadores/"+nombre_usuario, payload = "DISCONNECT")
+                    mqttc.disconnect()
+                    print("\n____ADIOS___\n")
                 elif (word != "BACK") and (word != ""):
                     insert_word(word.lower(), tema, table, str(letra.value)[2:-1])
                     print_state()
                     #print('\nok')
                     #print("\n\n____________________\n")
-            else:
+                
+            elif (tema!=""):
                 print_state("\nEse tema no existe actualmente... Prueba de nuevo", True)
         else:
             pass
             #print_state("Lo siento pero alguien ya dió el STOP", True)
-    print("\n____FIN DE LA RONDA___\n")
+    if not(salir):
+        print("\n____FIN DE LA RONDA___\n")
 
 """
 Con esta función se borra todo lo que había en pantalla y se imprime la tabla actual.
@@ -205,9 +227,16 @@ def callback_servidor(mqttc, userdata, msg):
         ###y enviamos la solicitud de acceso a la partida con nuestro nombre
         mqttc.publish(choques+"/solicitudes",payload=userdata[0])
     elif msg.payload==b"USER_EXC":
-        print("Usuario no válido o ya registrado")
+        print("Usuario no válido")
         conectado.value=0
         mqttc.disconnect()
+    """
+    esto lo había puesto para distingui el caso.
+    elif msg.payload==b"REPEATED_USER":
+        print("El usuario ya existe")
+        nombre_usuario=input("¿nombre usuario? ")
+        mqttc.publish(choques+"/servidor/"+nombre_usuario,payload="CONNECT_REQUEST")
+    """
     #
 
 ###################################################
