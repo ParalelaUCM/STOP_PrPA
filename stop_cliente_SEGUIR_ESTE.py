@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Mon Apr 13 19:56:28 2020
+
+@author: ELISA
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Mon Apr 13 08:38:47 2020
 @author: ELISA
 """
@@ -92,7 +99,7 @@ def insert_word(word, tema, table, letter):
 
 def fit_theme(tema):
     #lst = ["0","nombre", "animal", "comida", "pais", "ciudad", "famos@"]
-    lst = list(init_table.items())
+    lst = list(init_table())
     lst = ["0"]+lst
     try:
         index = int(tema)
