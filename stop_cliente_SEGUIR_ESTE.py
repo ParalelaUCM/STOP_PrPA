@@ -99,7 +99,7 @@ def insert_word(word, tema, table, letter):
 
 def fit_theme(tema):
     #lst = ["0","nombre", "animal", "comida", "pais", "ciudad", "famos@"]
-    lst = list(init_table())
+    lst = list(init_table().keys())
     lst = ["0"]+lst
     try:
         index = int(tema)
@@ -153,7 +153,7 @@ def new_play():
                 print_state("\nEse tema no existe actualmente... Prueba de nuevo", True)
         else:
             pass
-            print_state("Lo siento pero alguien ya dió el STOP", True, False)
+            #print_state("Lo siento pero alguien ya dió el STOP", True, False)
     if not(salir):
         print("\n____FIN DE LA RONDA___\n")
 
@@ -232,7 +232,7 @@ def callback_jugadores(mqttc, userdata, msg):
         global stop
         if stop!=True: ###este jugador no ha hecho stop
             stop = True
-            print_state("Otro jugador ha dado STOP, pulse intro para continuar", False, False)
+            print_state("Otro jugador ha dado STOP, pulse intro para continuar", True, False)
         else: ###este jugador ha hecho stop
             pass
     '''
