@@ -51,7 +51,6 @@ def print_state(msg= "", need_verification = False, print_table = True):
     if (need_verification):
         input()
 
-
 """
 Esta funcion se encarga de mostrar la tabla de un rival y recoger los datos de votacion.
 El jugador deberá indicar una secuencia numerica separada por espacios referenciando el
@@ -62,10 +61,11 @@ solamente trata los datos
 """
 def vote(rival_table):
     print_state("Te toca verificar la siguiente tabla\n", False, False)
+    i=1
     for key in rival_table:
         print(bcolors.WARNING + "["+ str(i)+ "]" +bcolors.ENDC, key.upper(), " : ",end ="")
-        if (table[key] != None):
-            print(bcolors.UNDERLINE+  table[key] + bcolors.ENDC)
+        if (rival_table[key] != None):
+            print(bcolors.UNDERLINE+  rival_table[key] + bcolors.ENDC)
         else:
             print("________")
         i += 1
@@ -83,8 +83,6 @@ def vote(rival_table):
         if (0 < index and index < len(lst)):
             rival_table[lst[index]] = None
     return (rival_table)
-
-
 
 def Stop(num_partida):
     global stop
@@ -166,7 +164,7 @@ def new_play():
         print("\n____FIN DE LA RONDA___\n")
 
 def callback_partidas(mqttc, userdata, msg):
-    spl=msg.topic.split("/") #['clients','estop','partidas','1','puntosR']
+    spl=msg.topic.split("/") #['clients','estop','partidas','1','puntos']
     if len(spl)==5 and spl[4]=="puntos":
         ###imprimimos las puntuaciones después de cada ronda
         datos=pickle.loads(msg.payload)
@@ -177,6 +175,23 @@ def callback_partidas(mqttc, userdata, msg):
                 userdata[1]+=datos[1][ii]
         print("MIS PUNTOS TOTALES",userdata[1])
         sleep(5) #elisa: He puesto este sleep, porque se iba super rápido, y no daba tiempo a leer bien las puntuaciones.
+    ##
+    ##
+    ##
+    if len(spl)>=5 and spl[4]=="votacion":#['clients','estop','partidas','1','puntos']
+        #le llega la info de otro usuario
+        datos=pickle.loads(msg.payload) # [nombre_del_otro,dicc_del_otro]
+        datos1=datos[1]
+        datos1.pop('puntos')
+        corregidos=vote(datos1) ##ver esta funcion como hacerla
+        #y se lo enviamos al
+        datos=[datos[0],corregidos]
+        mqttc.publish(choques+"/partidas/"+str(indice_partida.value)+"/votacion",
+                                  payload=pickle.dumps(datos))
+        
+    ##
+    ##
+    ##
 
 def on_message(mqttc, userdata, msg):
     print("MESSAGE:", userdata, msg.topic, msg.qos, msg.payload, msg.retain)
@@ -195,6 +210,7 @@ def callback_jugadores(mqttc, userdata, msg):
         ###no nos suscribimos a la partida,solo a los puntos
         ###mqttc.subscribe(choques+"/partidas/"+num_partida)
         mqttc.subscribe(choques+"/partidas/"+num_partida+"/puntos")
+        mqttc.subscribe(choques+"/partidas/"+num_partida+"/votacion/"+userdata[0])
         indice_partida.value=int(num_partida)
         userdata[2]=int(num_partida)
         print_state("Has creado la partida "+num_partida+"\n", False, False) ###Para que se vea mas claro
@@ -210,6 +226,7 @@ def callback_jugadores(mqttc, userdata, msg):
             ###no nos suscribimos a la partida, solo a los puntos
             ###mqttc.subscribe(choques+"/partidas/"+eleccion)
             mqttc.subscribe(choques+"/partidas/"+eleccion+"/puntos")
+            mqttc.subscribe(choques+"/partidas/"+eleccion+"/votacion/"+userdata[0])
             indice_partida.value=int(eleccion)
             userdata[2]=int(eleccion)
             mqttc.publish(choques+"/solicitudes/"+userdata[0],payload=eleccion)

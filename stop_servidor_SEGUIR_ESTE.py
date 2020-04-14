@@ -1,18 +1,18 @@
 from paho.mqtt.client import Client
 ###from multiprocessing import Process,Lock ###no usamos multiprocessing
 ###from time import sleep ###no usamos el sleep en el server
-from random import shuffle
+from random import shuffle,randint
 import pickle
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop1556" #topic=choques+"/servidor...
+choques="clients/estop" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas
 shuffle(alfabeto) ###barajamos el alfabeto para que no salgan en orden
 
-max_jugadores_partida=3
+max_jugadores_partida=10
 min_jugadores_partida=2
 
 class Player:
@@ -92,7 +92,8 @@ def callback_partidas(mqttc, userdata, msg):
         for jugador in userdata[indice_partida]:
             mqttc.publish(choques+"/jugadores/"+jugador,payload="STOP")
     elif len(spl)==5:
-        if spl[4]!="puntos": #['clients','estop','partidas','1','jugador']
+        #
+        if spl[4]!="puntos" and spl[4]!="votacion": #['clients','estop','partidas','1','jugador']
             mensaje=pickle.loads(msg.payload) #llega el diccionario entero
             ###con las respuestas {'comida':None,'pais':'marruecos'}
             for clave,valor in mensaje.items():
@@ -101,6 +102,66 @@ def callback_partidas(mqttc, userdata, msg):
             cuantos=len(userdata[indice_partida])-1 ###cuantos jugadores hay
             #en_espera = len(userdata[indice_partida]['info']['lista_espera'])
             if (cuantos == userdata[indice_partida]['info']['confirmados']):
+                ###cuando ha llegado la info de todos los jugadores,
+                ###enviamos para las votaciones
+                userdata[indice_partida]['info']['confirmados']=0
+                '''
+                ###cuando ha llegado la info de todos los jugadores,
+                ###calculamos los puntos
+                userdata[indice_partida]['info']['confirmados']=0
+                ids=[]
+                diccs=[]
+                for clave,valor in userdata[indice_partida].items():
+                    if clave!='info':
+                        ids.append(clave)
+                        diccs.append(valor)
+                #print("Entramos a calcular los puntos de la ronda")
+                '''
+                ##
+                ##
+                ##
+                lista_usuarios=list(userdata[indice_partida])
+                #lista_usuarios=['info','berni','sergio',elisa','pablo','marcos']
+                lista_usuarios.remove('info')
+                #lista_usuarios=['berni','sergio',elisa','pablo','marcos']
+                shuffle(lista_usuarios)
+                #lista_usuarios=[elisa','sergio','berni','marcos','pablo']
+                cuantos=len(lista_usuarios) #cuantos=5
+                modulo=randint(1,cuantos-1) #modulo=2
+                for i in range(len(lista_usuarios)):
+                    # i de 0 a 4, i=3
+                    usuario_actual=lista_usuarios[i]
+                    # usuario_actual='elisa'
+                    usuario_modulo=lista_usuarios[(i+modulo)%cuantos]
+                    # usuario_modulo='marcos'
+                    datos0=usuario_actual
+                    datos1=userdata[indice_partida][usuario_actual]
+                    datos=[datos0,datos1]
+                    # datos = ['elisa',{'ciudad':'dinamarca,'apellido':'dinamarca'} ]
+                    mqttc.publish(choques+"/partidas/"+str(indice_partida)+"/votacion/"+usuario_modulo,
+                                  payload=pickle.dumps(datos))
+                    #y se lo publicamos al otro usuario para que corrija
+                ##
+                ##
+                ##
+                    #ahora calculamos los puntos después de las votaciones
+                #calcula_puntos(ids,diccs,spl[3],userdata)
+        elif spl[4]=="votacion": #['clients','estop','partidas','1','votacion']
+            mensaje=pickle.loads(msg.payload) #llega [nombre,diccionario]
+            ###con las respuestas {'comida':None,'pais':'marruecos'}
+            mensaje_usuario=mensaje[0]
+            mensaje_dicc=mensaje[1]
+            print("acacacaccaa000",mensaje_usuario)
+            print("acacacaccaa000",mensaje_dicc)
+            for clave,valor in mensaje_dicc.items():
+                userdata[indice_partida][mensaje[0]][clave]=valor
+            userdata[indice_partida]['info']['confirmados']+=1
+            cuantos=len(userdata[indice_partida])-1 ###cuantos jugadores hay
+            print("acacacaccaa4")
+            print(userdata)
+            #en_espera = len(userdata[indice_partida]['info']['lista_espera'])
+            if (cuantos == userdata[indice_partida]['info']['confirmados']):
+                print("acacacaccaa5")
                 ###cuando ha llegado la info de todos los jugadores,
                 ###calculamos los puntos
                 userdata[indice_partida]['info']['confirmados']=0
@@ -112,6 +173,7 @@ def callback_partidas(mqttc, userdata, msg):
                         diccs.append(valor)
                 print("Entramos a calcular los puntos de la ronda")
                 calcula_puntos(ids,diccs,spl[3],userdata)
+            ##
         elif spl[4]=="puntos": #['clients','estop','partidas','1','puntos']
             ###se han publicado los puntos, y preparamos la siguiente ronda
             for jugador in userdata[indice_partida]['info']['lista_espera']:
