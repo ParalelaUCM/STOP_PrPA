@@ -1,30 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Apr 13 19:56:28 2020
-
-@author: ELISA
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Apr 13 08:38:47 2020
-@author: ELISA
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Apr 12 17:51:40 2020
-@author: sergi
-"""
-
-'''
-pongo con tres almohadillas los nuevos comentarios (###)
-###
-he metido los sleep en el cliente, para que el servidor no tenga delays indeseados
-pongo mis comentarios uevos con #elisa:
-'''
-
-
 from multiprocessing import Value ###Process no lo usamos
 from paho.mqtt.client import Client
 import paho.mqtt.publish as publish
@@ -34,13 +7,13 @@ from random import random
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop155" #topic=choques+"/servidor...
+choques="clients/estop1556" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 nombre_usuario=input("¿nombre usuario? ")
 
 """
-Con esta función se borra todo lo que había en pantalla y se imprime la tabla actual.
+Con esta función print_state se borra todo lo que había en pantalla y se imprime la tabla actual.
 Si el mensaje es un error o que alguien ha dado stop o la puntuacion de la ronda se
 se pondrá a true el 'need_verification'. Esto hará que solo salga en mensaje por pantalla
 sin la tabla ni nada y que se mantenga ahi hata que se le de a enter o entre otro mensaje
@@ -215,9 +188,11 @@ def callback_jugadores(mqttc, userdata, msg):
         print("Aún no hay jugadores suficientes para esta partida...")
     #
     elif mensaje[:5]=="READY":
-        print("La siguiente letra es...")
-        sleep(10) ###cuanto esperamos para admitir nueeva gente
-        mqttc.publish(choques+"/partidas/"+str(userdata[2]),payload="READY_YES")
+        print("\nPreparados: la siguiente letra es...")
+        espera=int(mensaje[5])
+        if espera==1:
+            sleep(5) ###cuanto esperamos para admitir nueeva gente
+            mqttc.publish(choques+"/partidas/"+str(userdata[2]),payload="READY_YES")
     #
     elif mensaje[:4]=="PLAY": #ahora llega algo como PLAY-R
         let=ord(mensaje[-1])
@@ -232,15 +207,9 @@ def callback_jugadores(mqttc, userdata, msg):
         global stop
         if stop!=True: ###este jugador no ha hecho stop
             stop = True
-            print_state("Otro jugador ha dado STOP, pulse intro para continuar", True, False)
+            print("Otro jugador ha dado STOP, pulse intro para continuar")
         else: ###este jugador ha hecho stop
             pass
-    '''
-    esto no lo estamos usando
-    elif msg.payload == b'RECUENTO':
-        mqttc.publish(choques+"/partidas/"+userdata[2]+"/puntos/"+userdata[0],
-                      payload=userdata[1])
-    '''
 
 def callback_servidor(mqttc, userdata, msg):
     #maneja las desconexiones inesperadas del servidor
@@ -252,22 +221,36 @@ def callback_servidor(mqttc, userdata, msg):
         mqttc.disconnect()
         conectado.value=0
     elif msg.payload==b"SERVER_READY":
+        sleep(random()*10)
         mqttc.publish(choques+"/servidor/"+userdata[0],payload="CONNECT_REQUEST")
     elif msg.payload==b"CONNECT_ACCEPT":
         print("SERVIDOR ACTIVO")
         mqttc.unsubscribe(choques+"/servidor/exception")
+        mqttc.unsubscribe(choques+"/servidor/"+userdata[0])
         ###si aceptan al jugador, nos desuscribimos de exception
         ###y enviamos la solicitud de acceso a la partida con nuestro nombre
         mqttc.publish(choques+"/solicitudes",payload=userdata[0])
     elif msg.payload==b"USER_EXC":
-        """
         print("Usuario no válido")
         print("Prueba otro usuario que no este en uso")
+        mqttc.disconnect()
         nombre_usuario=input("¿nombre usuario? ")
-        mqttc.reinitialise(clean_session=True, userdata=None)
+        sleep(1)
+        mqttc=Client(userdata=[nombre_usuario,0,0])#,clean_session=True)
+        mqttc.on_message = on_message
+        mqttc.message_callback_add(choques+"/servidor/#", callback_servidor)
+        mqttc.message_callback_add(choques+"/partidas/#", callback_partidas)
+        mqttc.message_callback_add(choques+"/jugadores/"+nombre_usuario, callback_jugadores)
+        mqttc.will_set(choques+"/jugadores/"+nombre_usuario,payload="DISCONNECT")
+        mqttc.connect(broker)
+        mqttc.subscribe(choques+"/jugadores/"+nombre_usuario)
+        mqttc.subscribe(choques+"/servidor")
+        mqttc.subscribe(choques+"/servidor/"+nombre_usuario)
+        mqttc.subscribe(choques+"/servidor/exception")
         mqttc.publish(choques+"/servidor/"+nombre_usuario,payload="CONNECT_REQUEST")
+        mqttc.loop_start()
         #conectado.value=0
-        #mqttc.disconnect()"""
+        #mqttc.disconnect()
     """
     esto lo había puesto para distingui el caso.
     elif msg.payload==b"REPEATED_USER":

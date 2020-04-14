@@ -1,31 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Apr 13 08:39:08 2020
-@author: ELISA
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Apr 12 18:57:28 2020
-@author: sergi
-"""
-
-'''
-pongo con tres almohadillas los nuevos comentarios (###)
-###
-->Ya funciona que un jugador se una tarde, primero le meto en los datos de la partida
-    1 y ya luego si se ha unido tarde le elimino y lo meto en la lista de espera.
-###
-##
-el userdata es un diccionario de partidas:
-->en cada partida se guarda un diccionario con:
--->los nombres de los jugadores: diccionario con las respuestas
--->'info':diccionario con el estado de la partida y el alfabeto
-##
-los sleep deberían estar todos en el cliente, pues el servidor no puede
-pararse ya que igual atiende a más partidas
-'''
-
 from paho.mqtt.client import Client
 ###from multiprocessing import Process,Lock ###no usamos multiprocessing
 ###from time import sleep ###no usamos el sleep en el server
@@ -34,7 +6,7 @@ import pickle
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop155" #topic=choques+"/servidor...
+choques="clients/estop1556" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas
@@ -147,7 +119,7 @@ def callback_partidas(mqttc, userdata, msg):
             userdata[indice_partida]['info']['lista_espera'] = []
             userdata[indice_partida]['info']['estado']=1 #estado: en espera
             for jugador in userdata[indice_partida]:
-                mqttc.publish(choques+"/jugadores/"+jugador,payload="READY")
+                mqttc.publish(choques+"/jugadores/"+jugador,payload="READY1")
 
 def callback_jugadores(mqttc, userdata, msg):
     #maneja las desconexiones inesperadas de los jugadores
@@ -158,7 +130,7 @@ def callback_jugadores(mqttc, userdata, msg):
         for clave,valor in userdata.items():
             if usuario in valor:
                 valor.pop(usuario)
-                if len(valor)==1:
+                if len(valor)==1:# and valor=='info':
                     userdata.pop(clave)
                     break
         print("estop userdata",userdata)
@@ -215,12 +187,13 @@ def callback_solicitudes(mqttc, userdata, msg):
                 for jugador in userdata[indice_partida]:
                     mqttc.publish(choques+"/jugadores/"+jugador,payload="NOT_INOF")
             elif userdata[indice_partida]['info']['estado'] < 2:
-                #userdata[indice_partida][usuario]={'puntos':0}
-                #ya hay jugadores suficientes
-                #el sleep ha pasado al cliente
-                userdata[indice_partida]['info']['estado']=1 #estado: en espera
-                for jugador in userdata[indice_partida]:
-                    mqttc.publish(choques+"/jugadores/"+jugador,payload="READY")
+                #para arreglar el problema de varias veces READY
+                if userdata[indice_partida]['info']['estado']==1:
+                    mqttc.publish(choques+"/jugadores/"+usuario,payload="READY2")
+                else:
+                    userdata[indice_partida]['info']['estado']=1 #estado: en espera
+                    for jugador in userdata[indice_partida]:
+                        mqttc.publish(choques+"/jugadores/"+jugador,payload="READY1")
             elif userdata[indice_partida]['info']['estado'] >= 2:
                 userdata[indice_partida]['info']['lista_espera'].append(usuario)
                 userdata[indice_partida].pop(usuario) #Eliminamos al usuario que se ha unido tarde
