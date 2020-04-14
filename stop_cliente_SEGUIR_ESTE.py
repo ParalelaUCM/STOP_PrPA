@@ -7,7 +7,7 @@ from random import random
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop1556" #topic=choques+"/servidor...
+choques="clients/estop" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 nombre_usuario=input("¿nombre usuario? ")
@@ -50,6 +50,41 @@ def print_state(msg= "", need_verification = False, print_table = True):
         print(msg, end="")
     if (need_verification):
         input()
+
+
+"""
+Esta funcion se encarga de mostrar la tabla de un rival y recoger los datos de votacion.
+El jugador deberá indicar una secuencia numerica separada por espacios referenciando el
+número de la categoría que quiera marcar como erronea.
+
+NOTA: Esta función no envía nada al Servidor. Tampoco recibe nada de el. Esta funcion
+solamente trata los datos
+"""
+def vote(rival_table):
+    print_state("Te toca verificar la siguiente tabla\n", False, False)
+    for key in rival_table:
+        print(bcolors.WARNING + "["+ str(i)+ "]" +bcolors.ENDC, key.upper(), " : ",end ="")
+        if (table[key] != None):
+            print(bcolors.UNDERLINE+  table[key] + bcolors.ENDC)
+        else:
+            print("________")
+        i += 1
+    print("")
+    print("Escribe separado por espacios los numeros de las categorías que creeas que esten erroneas.")
+    errors = input("\n->")
+    errors.split(" ")
+    lst = list(init_table().keys())
+    lst = ["0"]+lst
+    for tema in errors:
+        try:
+            index = int(tema)
+        except:
+            pass
+        if (0 < index and index < len(lst)):
+            rival_table[lst[index]] = None
+    return (rival_table)
+
+
 
 def Stop(num_partida):
     global stop
