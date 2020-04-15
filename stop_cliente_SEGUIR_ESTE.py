@@ -1,3 +1,25 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Apr 13 19:56:28 2020
+@author: sergi
+"""
+
+"""
+COSAS NUEVAS:
+    -FUNCION CALLBACK_PARTIDAS: NUEVO CASO EN EL QUE SE RECIBE EL MENSAJE DE GANADOR
+    QUE IMPRIME EL GANDOR CON SLEEP PARA DARLE EMOCION Y DESPUES PUBLICA LOS DATOS DE 
+    LA UTLIMA PARTIDA CON LA PUNTUACION TOTAL PARA QUE SE VEA. AQUI HABRIA QUE VER SI 
+    DESCONECTAR A TODOS LOS JUGADORES, PREGUNTARLES SI QUIEREN JUGAR OTRA PARTIDA O LO
+    QUE SE
+    - MENSAJE WAIT1 Y WAIT2: SI RECIBE WAIT SE MIRA SI LUEGO HAY UN 1 O UN 2. EN EL CASO
+    DE SER UN 1 ESO QUIERE DECIR QUE ES PORQUE EL CLIENTE SE HA UNIDO TARDE Y TIENE QUE 
+    ESPERAR A LA SIGUIENTE RONDA Y SI ES UN 2 ES PORQUE EN MEDIO DE LA PARTIDA YA NO HAY 
+    JUGADORES SUFICIENTES Y SE TIENEN QUE ESPERAR A QUE SE UNAN NUEVOS. 
+    - CREACION DEL CANAL PARTIDAS/GANADOR PARA SABER SI YA HA GANADO ALGUIEN, HABRIA QUE 
+    VER SI ES MEJOR UNIFICAR TODOS LOS SUBSCRIBE PARTIDAS/PUNTOS O /VOTACION ETC.
+    - CREO QUE NADA MAS EN ESPECIAL. BSSSISSSSS 
+"""
+
 from multiprocessing import Value ###Process no lo usamos
 from paho.mqtt.client import Client
 import paho.mqtt.publish as publish
@@ -7,7 +29,7 @@ from random import random
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop436" #topic=choques+"/servidor...
+choques="clients/estop155" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 nombre_usuario=input("¿nombre usuario? ")
@@ -164,8 +186,17 @@ def new_play():
 
 def callback_partidas(mqttc, userdata, msg):
     spl=msg.topic.split("/") #['clients','estop','partidas','1','puntos']
-    if len(spl)==5 and spl[4]=="puntos":
-        ###imprimimos las puntuaciones después de cada ronda
+    if len(spl)>=5 and (spl[4]=="puntos" or spl[4]=="ganador"):
+        if spl[4]=="puntos":
+            ###imprimimos las puntuaciones después de cada ronda
+            print_state("Momento de ver las puntuaciones\n", False, False)
+        elif spl[4]=="ganador":
+            print("ENTRO EN EL COMANDO GANDOR")
+            print_state("La partida ha acabado, ¡Y EL GANDOR ES...\n", False, False)
+            sleep(5) #Para darle todo el drama si hay dos empatados
+            print("          ..."+str(spl[5].upper())+"!\n\n")
+            sleep(5) #Para asimilar la victoria o la derrota antes de ver las puntuaciones
+            print("Momento de ver las puntuaciones finales\n")
         datos=pickle.loads(msg.payload)
         print("PUNTUACIONES | RONDA | TOTALES")
         for ii in range(len(datos[0])):
@@ -187,7 +218,6 @@ def callback_partidas(mqttc, userdata, msg):
         datos=[datos[0],corregidos]
         mqttc.publish(choques+"/partidas/"+str(indice_partida.value)+"/votacion",
                                   payload=pickle.dumps(datos))
-        
     ##
     ##
     ##
@@ -210,6 +240,7 @@ def callback_jugadores(mqttc, userdata, msg):
         ###mqttc.subscribe(choques+"/partidas/"+num_partida)
         mqttc.subscribe(choques+"/partidas/"+num_partida+"/puntos")
         mqttc.subscribe(choques+"/partidas/"+num_partida+"/votacion/"+userdata[0])
+        mqttc.subscribe(choques+"/partidas/"+num_partida+"/ganador/#")
         indice_partida.value=int(num_partida)
         userdata[2]=int(num_partida)
         print_state("Has creado la partida "+num_partida+"\n", False, False) ###Para que se vea mas claro
@@ -226,6 +257,7 @@ def callback_jugadores(mqttc, userdata, msg):
             ###mqttc.subscribe(choques+"/partidas/"+eleccion)
             mqttc.subscribe(choques+"/partidas/"+eleccion+"/puntos")
             mqttc.subscribe(choques+"/partidas/"+eleccion+"/votacion/"+userdata[0])
+            mqttc.subscribe(choques+"/partidas/"+eleccion+"/ganador/#")
             indice_partida.value=int(eleccion)
             userdata[2]=int(eleccion)
             mqttc.publish(choques+"/solicitudes/"+userdata[0],payload=eleccion)
@@ -251,8 +283,14 @@ def callback_jugadores(mqttc, userdata, msg):
         #print_state("EMPIEZA UNA NUEVA RONDA CON LA LETRA "+chr(let), True)
         jugar.value = 1
     #
-    elif mensaje == "WAIT":
-        print("Partida en marcha, esperando a que empiece la siguiente ronda")
+    elif mensaje[:4] == "WAIT":
+        opcion = int(mensaje[4:5])
+        if opcion == 1:
+            print("Partida en marcha, esperando a que empiece la siguiente ronda")
+        elif opcion == 2:
+            print_state("Numero de jugadores insuficiente para iniciar la ronda\n", False, False)
+            print("Esperando a mas jugadores...")
+            
     #
     elif msg.payload == b'STOP':
         global stop
@@ -261,6 +299,7 @@ def callback_jugadores(mqttc, userdata, msg):
             print("Otro jugador ha dado STOP, pulse intro para continuar")
         else: ###este jugador ha hecho stop
             pass
+    #
     elif msg.payload == b"JUGADORES_INSUFICIENTES":
         print("Lo siento, todos los jugadores se han marchado, vuelve más tarde :)")
         conectado.value=0

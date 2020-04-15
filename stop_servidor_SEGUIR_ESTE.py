@@ -1,3 +1,30 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Apr 13 08:39:08 2020
+@author: ELISA
+"""
+"""
+COSAS NUEVAS:
+    - FINALIZACION DE LA PARTIDA MEDIANTE UNA PUNTUACION MAXIMA. SI ANTES DE ENVIAR LAS
+    PUNTUACIONES PARA QUE LAS VEAN LOS JUGHADORES, SE DETECTA QUE ALGUIEN HA ALCANZADO
+    LA PUNTUACION MAXIMA, ENVIAMOS UN MENSAJE ESPECIAL POR PARTIDAS CON EL SUBTOPIC 
+    GANDOR PARA QUE EL CLIENTE LO DETECTE Y LO SAQUE POR PANTALLA
+    - ANTES DE UTILIZAR LA VARIABLE MODULO PARA REPARTIR LAS TABLAS A CORREGIR, SI ALGUN
+    JUGADOR HA ABANDONADO LA PARTIDA Y AL FINAL SE QUEDA UNO SOLO, COMO DARIA ERROR EL 
+    RANDIT LE ENVIAMOS UN MENSAJE ESPECIAL AL CLIENTE PARA QUE SEPA QUE SE HA QUEDADO SOLO
+    Y LE EXPULSARA.
+        EN EL CASO DE QUE SE HAYAN IDO JUGADORES PERO EL NUMERO DE ELLOS ESTE ENTRE 
+        2 <= JUGADORES EN LINEA < MIN_JUGADORES_PARTIDA LES DEJARA ACABAR ESA RONDA,
+        CON LA CORRESPONDIENTE CORRECCION DE LAS TABLAS, YA QUE AL MENOS SERAN 2, Y 
+        DESPUES AL COMPROBAR, ANTES DE INICIAR LA SIGUIENTE RONDA, QUE NO HAY JUGADORES
+        NECESARIOS, SE LES ENVIA UN MENSAJE A ESTOS POR EL CANAL WAIT2 PARA QUE SEPAN QUE
+        TIENEN QUE ESPERAR A QUE SE UNAN NUEVOS JUGADORES. EN CUANTO SE UNAN LOS NECESARIOS
+        PARA QUE HAYA LOS MINIMOS ESTABLECIDOS, LA PARTIDA CONTINUA CON LA SIGUIENTE LETRA.
+        
+        ESTO A LO MEJOR HABRIA QUE TERMINAR DE HABLARLO PARA VER QUE HACER.
+"""
+
+
 from paho.mqtt.client import Client
 ###from multiprocessing import Process,Lock ###no usamos multiprocessing
 ###from time import sleep ###no usamos el sleep en el server
@@ -6,14 +33,15 @@ import pickle
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop436" #topic=choques+"/servidor...
+choques="clients/estop155" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas
 shuffle(alfabeto) ###barajamos el alfabeto para que no salgan en orden
 
 max_jugadores_partida=10
-min_jugadores_partida=2
+min_jugadores_partida=3
+max_puntuacion = 100
 
 class Player:
     #Constructora
@@ -74,8 +102,15 @@ def calcula_puntos(ids,diccs,num_partida,userdata):
     for i in range(len(ids)):
         puntuacionesRonda.append(puntuacionesFinales[i]-puntuacionesIniciales[i])
     #publicamos resultados a los usuarios:
-    mqttc.publish(choques+"/partidas/"+str(num_partida)+"/puntos",
-                  payload=pickle.dumps([ids,puntuacionesRonda,puntuacionesFinales]))
+    if max(puntuacionesFinales) >= max_puntuacion:
+        posicion = puntuacionesFinales.index(max(puntuacionesFinales))
+        ganador = ids[posicion]
+        print("TENEMOS GANADOR "+ganador)
+        mqttc.publish(choques+"/partidas/"+str(num_partida)+"/ganador/"+ganador,
+                      payload=pickle.dumps([ids,puntuacionesRonda,puntuacionesFinales]))
+    else:
+        mqttc.publish(choques+"/partidas/"+str(num_partida)+"/puntos",
+                      payload=pickle.dumps([ids,puntuacionesRonda,puntuacionesFinales]))
 
 #
 def callback_partidas(mqttc, userdata, msg):
@@ -92,14 +127,15 @@ def callback_partidas(mqttc, userdata, msg):
         for jugador in userdata[indice_partida]:
             mqttc.publish(choques+"/jugadores/"+jugador,payload="STOP")
     elif len(spl)==5:
-        #
+        #ESTE IF ES NECESARIO PORQUE SI NO LA VARIABLE MODULO DA ERROR AL HACER RANDIT(1,0)
+        #EN TAL CASO SOLO HAY 1 JUGADOR PORQUE LOS DEMAS SE HAN IDO Y LE CERRAMOS LA PARTIDA.
         if len(userdata[indice_partida])==2:
             lista_usuarios=list(userdata[indice_partida])
             lista_usuarios.remove('info')
             usuario_actual=lista_usuarios[0]
             mqttc.publish(choques+"/jugadores/"+usuario_actual,
                                       payload= "JUGADORES_INSUFICIENTES")
-        elif spl[4]!="puntos" and spl[4]!="votacion" : #['clients','estop','partidas','1','jugador']
+        if spl[4]!="puntos" and spl[4]!="votacion": #['clients','estop','partidas','1','jugador']
             mensaje=pickle.loads(msg.payload) #llega el diccionario entero
             ###con las respuestas {'comida':None,'pais':'marruecos'}
             for clave,valor in mensaje.items():
@@ -133,7 +169,6 @@ def callback_partidas(mqttc, userdata, msg):
                 shuffle(lista_usuarios)
                 #lista_usuarios=[elisa','sergio','berni','marcos','pablo']
                 cuantos=len(lista_usuarios) #cuantos=5
-                usuario_actual=lista_usuarios[0]
                 modulo=randint(1,cuantos-1) #modulo=2
                 for i in range(len(lista_usuarios)):
                     # i de 0 a 4, i=3
@@ -187,8 +222,14 @@ def callback_partidas(mqttc, userdata, msg):
                 userdata[indice_partida][jugador]={'puntos':0}
             userdata[indice_partida]['info']['lista_espera'] = []
             userdata[indice_partida]['info']['estado']=1 #estado: en espera
-            for jugador in userdata[indice_partida]:
-                mqttc.publish(choques+"/jugadores/"+jugador,payload="READY1")
+            if len(userdata[indice_partida]) - 1 < min_jugadores_partida:
+                userdata[indice_partida]['info']['estado']=0 #estado: en 0 porque se necistan jugadores
+                for jugador in userdata[indice_partida]:
+                    mqttc.publish(choques+"/jugadores/"+jugador, payload="WAIT2")
+                #print("NO HAY JUGADORES SUFICIENTES PARA EMPEZAR LA SIGUIENTE RONDA")
+            else:
+                for jugador in userdata[indice_partida]:
+                    mqttc.publish(choques+"/jugadores/"+jugador,payload="READY1")
 
 def callback_jugadores(mqttc, userdata, msg):
     #maneja las desconexiones inesperadas de los jugadores
@@ -266,7 +307,7 @@ def callback_solicitudes(mqttc, userdata, msg):
             elif userdata[indice_partida]['info']['estado'] >= 2:
                 userdata[indice_partida]['info']['lista_espera'].append(usuario)
                 userdata[indice_partida].pop(usuario) #Eliminamos al usuario que se ha unido tarde
-                mqttc.publish(choques+"/jugadores/"+usuario, payload="WAIT")
+                mqttc.publish(choques+"/jugadores/"+usuario, payload="WAIT1")
                 print("Hay un jugador en espera")
                 #falta el caso en el que se conecta uno más tarde
                 #de momento creo que es mejor que funcione como una partida
