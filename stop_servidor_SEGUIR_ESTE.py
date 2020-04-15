@@ -6,7 +6,7 @@ import pickle
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop" #topic=choques+"/servidor...
+choques="clients/estop436" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas
@@ -93,7 +93,13 @@ def callback_partidas(mqttc, userdata, msg):
             mqttc.publish(choques+"/jugadores/"+jugador,payload="STOP")
     elif len(spl)==5:
         #
-        if spl[4]!="puntos" and spl[4]!="votacion": #['clients','estop','partidas','1','jugador']
+        if len(userdata[indice_partida])==2:
+            lista_usuarios=list(userdata[indice_partida])
+            lista_usuarios.remove('info')
+            usuario_actual=lista_usuarios[0]
+            mqttc.publish(choques+"/jugadores/"+usuario_actual,
+                                      payload= "JUGADORES_INSUFICIENTES")
+        elif spl[4]!="puntos" and spl[4]!="votacion" : #['clients','estop','partidas','1','jugador']
             mensaje=pickle.loads(msg.payload) #llega el diccionario entero
             ###con las respuestas {'comida':None,'pais':'marruecos'}
             for clave,valor in mensaje.items():
@@ -127,6 +133,7 @@ def callback_partidas(mqttc, userdata, msg):
                 shuffle(lista_usuarios)
                 #lista_usuarios=[elisa','sergio','berni','marcos','pablo']
                 cuantos=len(lista_usuarios) #cuantos=5
+                usuario_actual=lista_usuarios[0]
                 modulo=randint(1,cuantos-1) #modulo=2
                 for i in range(len(lista_usuarios)):
                     # i de 0 a 4, i=3

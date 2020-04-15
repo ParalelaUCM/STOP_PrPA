@@ -7,7 +7,7 @@ from random import random
 
 #broker="localhost"
 broker="wild.mat.ucm.es"
-choques="clients/estop" #topic=choques+"/servidor...
+choques="clients/estop436" #topic=choques+"/servidor...
 ###choques: para evitar colisiones en el broker en las pruebas
 
 nombre_usuario=input("¿nombre usuario? ")
@@ -55,7 +55,6 @@ def print_state(msg= "", need_verification = False, print_table = True):
 Esta funcion se encarga de mostrar la tabla de un rival y recoger los datos de votacion.
 El jugador deberá indicar una secuencia numerica separada por espacios referenciando el
 número de la categoría que quiera marcar como erronea.
-
 NOTA: Esta función no envía nada al Servidor. Tampoco recibe nada de el. Esta funcion
 solamente trata los datos
 """
@@ -262,6 +261,12 @@ def callback_jugadores(mqttc, userdata, msg):
             print("Otro jugador ha dado STOP, pulse intro para continuar")
         else: ###este jugador ha hecho stop
             pass
+    elif msg.payload == b"JUGADORES_INSUFICIENTES":
+        print("Lo siento, todos los jugadores se han marchado, vuelve más tarde :)")
+        conectado.value=0
+        mqttc.publish(choques+"/jugadores/"+nombre_usuario, payload = "DISCONNECT")
+        mqttc.disconnect()
+        print_state("\n____ADIOS___\n", True, False)
 
 def callback_servidor(mqttc, userdata, msg):
     #maneja las desconexiones inesperadas del servidor
