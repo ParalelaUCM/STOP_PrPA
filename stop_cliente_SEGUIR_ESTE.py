@@ -141,9 +141,9 @@ def new_play():
                 msg = "\n¿Que "+ tema.upper() + " se te ocurre con la letra "+ str(letra.value)[2:-1].upper()+"?\n\n-> "
                 print_state(msg)
                 word = input()
-                if (tema.upper() == "STOP") or (tema == "0"):
+                if (word.upper() == "STOP") or (word == "0"):
                     Stop(indice_partida.value)
-                elif (tema.upper() =="EXIT") or (tema == "!"):
+                elif (word.upper() =="EXIT") or (word == "!"):
                     salir = True
                     conectado.value=0
                     mqttc.publish(choques+"/jugadores/"+nombre_usuario, payload = "DISCONNECT")
