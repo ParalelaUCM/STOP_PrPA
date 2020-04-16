@@ -7,25 +7,6 @@ from paho.mqtt.client import Client
 from random import shuffle,randint
 import pickle
 
-#broker="localhost"
-broker="wild.mat.ucm.es"
-choques="clients/estop155" #Para evitar ponerlo todo el rato, y errores a la hora de probar el codigo. "topic=choques+"/servidor..."
-
-#creamos un alfabeto para escoger la letra de la partida.
-alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas.
-shuffle(alfabeto) #lo barajamos.
-
-
-"""
-En esta 'seccion' se eligen las condiciones de la partida.
-numero minimo y maximo de jugadores, asi como una puntuacion
-maxima que indicara el ganador.
-"""
-max_jugadores_partida=10
-min_jugadores_partida=3
-max_puntuacion = 100
-
-
 #Creamos la clase jugador para manejarnos mejor con el codigo y acceder asi directamente a objetos basicos de cada jugador.
 class Player:
     #Constructora
@@ -315,35 +296,50 @@ def callback_servidor(mqttc, userdata, msg):
 
 #
 
-###
+if __name__ == "__main__":
 
-mqttc = Client(userdata={}) #diccionario como userdata para la info del juego
-#'info' indica el estado de la partida:
-#estado: 0 es sin empezar,1 en espera,2 jugando,3 en recuento
-#alfabeto: las letras que quedan por jugar, de inicio ya están desordenadas
-#confirmados para tener una forma de ver si todos envian la info
+    broker="wild.mat.ucm.es"
+    choques="clients/estop5" #"topic=choques+"/servidor..."
+    #Para evitar ponerlo todo el rato, y errores a la hora de probar el codigo.
 
-#funciones callback:
-mqttc.message_callback_add(choques+"/jugadores/#", callback_jugadores)
-mqttc.message_callback_add(choques+"/partidas/#", callback_partidas)
-mqttc.message_callback_add(choques+"/servidor/#", callback_servidor)
-mqttc.message_callback_add(choques+"/solicitudes/#", callback_solicitudes)
+    #creamos un alfabeto para escoger la letra de la partida.
+    alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas.
+    shuffle(alfabeto) #lo barajamos.
 
-#will_set:
-#ultimo mensaje que se envía si el Client se desconecta sin usar disconnect()
-mqttc.will_set(choques+"/servidor",payload="SERVER_FAIL")
+    """
+    En esta 'seccion' se eligen las condiciones de la partida.
+    numero minimo y maximo de jugadores, asi como una puntuacion
+    maxima que indicara el ganador.
+    """
+    max_jugadores_partida=10
+    min_jugadores_partida=3
+    max_puntuacion = 100
 
-mqttc.connect(broker)
+    mqttc = Client(userdata={}) #diccionario como userdata para la info del juego
+    #'info' indica el estado de la partida:
+    #estado: 0 es sin empezar,1 en espera,2 jugando,3 en recuento
+    #alfabeto: las letras que quedan por jugar, de inicio ya están desordenadas
+    #confirmados para tener una forma de ver si todos envian la info
 
-mqttc.publish(choques+"/servidor",payload="SERVER_READY")
-print("SERVIDOR ACTIVO...")
+    #funciones callback:
+    mqttc.message_callback_add(choques+"/jugadores/#", callback_jugadores)
+    mqttc.message_callback_add(choques+"/partidas/#", callback_partidas)
+    mqttc.message_callback_add(choques+"/servidor/#", callback_servidor)
+    mqttc.message_callback_add(choques+"/solicitudes/#", callback_solicitudes)
 
-#suscripciones iniciales del servidor
-mqttc.subscribe(choques+"/servidor/#")
-mqttc.subscribe(choques+"/solicitudes/#")
-mqttc.subscribe(choques+"/jugadores/#")
-mqttc.subscribe(choques+"/partidas/#")
+    #will_set:
+    #ultimo mensaje que se envía si el Client se desconecta sin usar disconnect()
+    mqttc.will_set(choques+"/servidor",payload="SERVER_FAIL")
 
-mqttc.loop_forever()
+    mqttc.connect(broker)
 
-###
+    mqttc.publish(choques+"/servidor",payload="SERVER_READY")
+    print("SERVIDOR ACTIVO...")
+
+    #suscripciones iniciales del servidor
+    mqttc.subscribe(choques+"/servidor/#")
+    mqttc.subscribe(choques+"/solicitudes/#")
+    mqttc.subscribe(choques+"/jugadores/#")
+    mqttc.subscribe(choques+"/partidas/#")
+
+    mqttc.loop_forever()
