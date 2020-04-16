@@ -72,6 +72,7 @@ def calcula_puntos(ids,diccs,num_partida,userdata):
         print("TENEMOS GANADOR "+ganador)
         mqttc.publish(choques+"/partidas/"+str(num_partida)+"/ganador/"+ganador,
                       payload=pickle.dumps([ids,puntuacionesRonda,puntuacionesFinales]))
+        userdata.pop(int(num_partida))
         #
     else:
         mqttc.publish(choques+"/partidas/"+str(num_partida)+"/puntos",
@@ -217,9 +218,11 @@ def callback_solicitudes(mqttc, userdata, msg):
         if userdata=={}:
             #si no hay nadie aún, mete al usuario en la partida 1 directamente
             mqttc.publish(choques+"/jugadores/"+usuario,payload="NUEVA_PARTIDA 1")
-            alf=alfabeto.copy() #hacemos una copia del alfabeto
+            #Creamos el alfabeto de la partida
+            alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas.
+            shuffle(alfabeto) #lo barajamos.
             #inicializamos el userdata
-            userdata[1]={"info":{'estado':0,'alfabeto':alf,'confirmados':0,'lista_espera':[]},
+            userdata[1]={"info":{'estado':0,'alfabeto':alfabeto,'confirmados':0,'lista_espera':[]},
                          usuario:{'puntos':0}}
         else:
             #si hay alguna partida, deja al usuario elegir entre nueva o cargar
@@ -239,9 +242,11 @@ def callback_solicitudes(mqttc, userdata, msg):
                 p_libre+=1
             mqttc.publish(choques+"/jugadores/"+usuario,
                           payload="NUEVA_PARTIDA "+str(p_libre))
-            alf=alfabeto.copy() #hacemos una copia del alfabeto
+            #Creamos el alfabeto de la partida
+            alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas.
+            shuffle(alfabeto) #lo barajamos.
             #inicializamos el userdata
-            userdata[p_libre]={"info":{'estado':0,'alfabeto':alf,'confirmados':0,'lista_espera':[]}
+            userdata[p_libre]={"info":{'estado':0,'alfabeto':alfabeto,'confirmados':0,'lista_espera':[]}
                                ,usuario:{'puntos':0}}
         #
         else:
@@ -282,6 +287,7 @@ def callback_servidor(mqttc, userdata, msg):
         #comprobamos que el usuario no está aún registrado
         ya_registrado=False
         usuario=spl[3]
+        print(usuario)
         for clave,valor in userdata.items():
             if usuario in valor:
                 ya_registrado=True
@@ -302,9 +308,6 @@ if __name__ == "__main__":
     choques="clients/estop5" #"topic=choques+"/servidor..."
     #Para evitar ponerlo todo el rato, y errores a la hora de probar el codigo.
 
-    #creamos un alfabeto para escoger la letra de la partida.
-    alfabeto=[chr(i) for i in range(97,123)] #65a91 para MAY, 97a123 para minusculas.
-    shuffle(alfabeto) #lo barajamos.
 
     """
     En esta 'seccion' se eligen las condiciones de la partida.
@@ -312,8 +315,8 @@ if __name__ == "__main__":
     maxima que indicara el ganador.
     """
     max_jugadores_partida=10
-    min_jugadores_partida=3
-    max_puntuacion = 100
+    min_jugadores_partida=2
+    max_puntuacion = 25
 
     mqttc = Client(userdata={}) #diccionario como userdata para la info del juego
     #'info' indica el estado de la partida:

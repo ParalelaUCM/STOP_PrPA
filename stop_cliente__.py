@@ -191,6 +191,18 @@ def callback_partidas(mqttc, userdata, msg):
                 userdata[1]+=datos[1][ii]
         print("MIS PUNTOS TOTALES",userdata[1])
         sleep(5)
+        if spl[4]=="ganador":
+            #mqttc.publish(choques+"/jugadores/"+userdata[0], payload = "DISCONNECT")
+            msg = "\nSi quieres jugar otra partida pulsa 1, si quieres salir pulsa 0\n\n-> "
+            print_state(msg, False, False)
+            eleccion = input()
+            if int(eleccion) == 1:
+                mqttc.subscribe(choques+"/servidor/"+userdata[0])
+                mqttc.publish(choques+"/servidor/"+userdata[0],payload="CONNECT_REQUEST")
+                print("ESPERANDO AL SERVIDOR...")
+            else:
+                print_state("\n____ADIOS___\n", False, False)
+                conectado.value = 0
     ##
     if len(spl)>=5 and spl[4]=="votacion": #['clients','estop','partidas','1','votacion']
         #le llega la info de otro usuario para la correción
@@ -281,7 +293,7 @@ def callback_jugadores(mqttc, userdata, msg):
     elif msg.payload == b"JUGADORES_INSUFICIENTES":
         print("Lo siento, todos los jugadores se han marchado, vuelve más tarde :)")
         conectado.value=0
-        mqttc.publish(choques+"/jugadores/"+nombre_usuario, payload = "DISCONNECT")
+        mqttc.publish(choques+"/jugadores/"+userdata[0], payload = "DISCONNECT")
         mqttc.disconnect()
         print_state("\n____ADIOS___\n", True, False)
 
@@ -383,3 +395,4 @@ if __name__ == "__main__":
         ###publicamos las categorias para que trabaje el servidor con ellas
         mqttc.publish(choques+"/partidas/"+str(indice_partida.value)+"/"+nombre_usuario,
                       payload = pickle.dumps(table))
+    mqttc.disconnect()
