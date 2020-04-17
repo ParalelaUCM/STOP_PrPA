@@ -260,12 +260,12 @@ def callback_solicitudes(mqttc, userdata, msg):
                     mqttc.publish(choques+"/jugadores/"+jugador,payload="NOT_INOF")
             #
             elif userdata[indice_partida]['info']['estado'] < 2:
-                if userdata[indice_partida]['info']['estado']==1:
-                    mqttc.publish(choques+"/jugadores/"+usuario,payload="READY2")
-                else:
+                if userdata[indice_partida]['info']['estado']==0:
                     userdata[indice_partida]['info']['estado']=1 #estado: en espera
                     for jugador in userdata[indice_partida]:
                         mqttc.publish(choques+"/jugadores/"+jugador,payload="READY1")
+                else:
+                    mqttc.publish(choques+"/jugadores/"+usuario,payload="READY2")
             #
             elif userdata[indice_partida]['info']['estado'] >= 2:
                 userdata[indice_partida]['info']['lista_espera'].append(usuario)

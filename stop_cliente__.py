@@ -255,7 +255,7 @@ def callback_jugadores(mqttc, userdata, msg):
             conectado.value=0
             mqttc.disconnect()
     #
-    elif msg.payload==b"NOT_INOF":
+    elif mensaje[:8]==b"NOT_INOF":
         print("Aún no hay jugadores suficientes para esta partida.")
         print("Esperando a más jugadores...")
     #
@@ -266,11 +266,6 @@ def callback_jugadores(mqttc, userdata, msg):
             sleep(5)
             mqttc.publish(choques+"/partidas/"+str(userdata[2]),payload="READY_YES")
     #
-    elif mensaje[:4]=="PLAY":
-        let=ord(mensaje[-1])
-        letra.value = let
-        jugar.value = 1
-    #
     elif mensaje[:4] == "WAIT":
         opcion = int(mensaje[4:5])
         if opcion == 1:
@@ -278,7 +273,11 @@ def callback_jugadores(mqttc, userdata, msg):
         elif opcion == 2:
             print_state("Numero de jugadores insuficiente para iniciar la ronda\n", False, False)
             print("Esperando a mas jugadores...")
-            
+    #
+    elif mensaje[:4]=="PLAY":
+        let=ord(mensaje[-1])
+        letra.value = let
+        jugar.value = 1            
     #
     elif msg.payload == b'STOP':
         global stop
