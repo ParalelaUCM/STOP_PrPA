@@ -340,7 +340,7 @@ def callback_servidor(mqttc, userdata, msg):
 if __name__ == "__main__":    
 
     broker="wild.mat.ucm.es"
-    choques="clients/estop5" #topic=choques+"/servidor...
+    choques="clients/stop" #topic=choques+"/servidor...
     ###choques: para evitar colisiones en el broker en las pruebas
 
     nombre_usuario=input("¿nombre usuario? ") #identificador del usuario

@@ -46,7 +46,7 @@ def calcula_puntos(ids,diccs,num_partida,userdata):
     '''
     puntuacionesIniciales=[] #puntuaciones al inicio de la ronda.
     ldp=[] #lista de Players.
-    print("\nRespuestas de la ronda:")
+    #print("\nRespuestas de la ronda:")
     for i in range(len(ids)):
         puntuacionesIniciales.append(diccs[i]['puntos'])
         p=Player(ids[i],diccs[i]) #el player actual
@@ -59,7 +59,7 @@ def calcula_puntos(ids,diccs,num_partida,userdata):
         puntos=jugador.calculate_score(ldp)
         puntuacionesFinales.append(puntos)
         userdata[int(num_partida)][ids[i]]['puntos']=puntos #actualizamos los puntos
-        print(ids[i],puntos)
+        #print(ids[i],puntos)
     #
     puntuacionesRonda=[] #puntuaciones de la ronda en sí
     for i in range(len(ids)):
@@ -69,7 +69,7 @@ def calcula_puntos(ids,diccs,num_partida,userdata):
     if max(puntuacionesFinales) >= max_puntuacion:
         posicion = puntuacionesFinales.index(max(puntuacionesFinales))
         ganador = ids[posicion]
-        print("TENEMOS GANADOR "+ganador)
+        #print("TENEMOS GANADOR "+ganador)
         mqttc.publish(choques+"/partidas/"+str(num_partida)+"/ganador/"+ganador,
                       payload=pickle.dumps([ids,puntuacionesRonda,puntuacionesFinales]))
         userdata.pop(int(num_partida))
@@ -154,13 +154,10 @@ def callback_partidas(mqttc, userdata, msg):
             #con las respuestas {'comida':None,'pais':'marruecos'}
             mensaje_usuario=mensaje[0]
             mensaje_dicc=mensaje[1]
-            print(mensaje_usuario)
-            print(mensaje_dicc)
             for clave,valor in mensaje_dicc.items():
                 userdata[indice_partida][mensaje[0]][clave]=valor
             userdata[indice_partida]['info']['confirmados']+=1
             cuantos=len(userdata[indice_partida])-1 #cuantos jugadores hay
-            print(userdata)
             #
             if (cuantos == userdata[indice_partida]['info']['confirmados']):
                 #cuando ha llegado la info de todos los jugadores, calculamos puntos.
@@ -171,6 +168,7 @@ def callback_partidas(mqttc, userdata, msg):
                     if clave!='info':
                         ids.append(clave)
                         diccs.append(valor)
+                print_userdata(userdata)
                 print("Entramos a calcular los puntos de la ronda")
                 calcula_puntos(ids,diccs,spl[3],userdata)
             ##
@@ -188,6 +186,7 @@ def callback_partidas(mqttc, userdata, msg):
             else:
                 for jugador in userdata[indice_partida]:
                     mqttc.publish(choques+"/jugadores/"+jugador,payload="READY1")
+        
 
 def callback_jugadores(mqttc, userdata, msg):
     """
@@ -203,7 +202,7 @@ def callback_jugadores(mqttc, userdata, msg):
                 if len(valor)==1:# and valor=='info':
                     userdata.pop(clave)
                     break
-        print("estop userdata",userdata)
+        print_userdata(userdata)
 
 #
 def callback_solicitudes(mqttc, userdata, msg):
@@ -273,8 +272,7 @@ def callback_solicitudes(mqttc, userdata, msg):
                 mqttc.publish(choques+"/jugadores/"+usuario, payload="WAIT1")
                 print("Hay un jugador en espera")
     #
-    print("estop actual",userdata) #mostramos el diccionario tras cada mensaje
-    #
+    print_userdata(userdata)
 
 #
 def callback_servidor(mqttc, userdata, msg):
@@ -298,14 +296,31 @@ def callback_servidor(mqttc, userdata, msg):
         else:
             #aceptamos al usuario
             mqttc.publish(msg.topic,payload="CONNECT_ACCEPT")
-    print("estop userdata",userdata)
+    print_userdata(userdata)
 
 #
+
+def print_userdata(userdata):
+    print("\n")
+    if userdata=={}:
+        print("{} No hay ninguna partida")
+    else:
+        for clave,valor in userdata.items():
+            print("Partida",clave)
+            for clave1,valor1 in userdata[clave].items():
+                if clave1=='info':
+                    print("Información de la partida")
+                    for clave2,valor2 in (userdata[clave]['info']).items():
+                        print("-",clave2,":",valor2)
+                else:
+                    print(clave1,":",valor1)
+            print("\n")
+    
 
 if __name__ == "__main__":
 
     broker="wild.mat.ucm.es"
-    choques="clients/estop5" #"topic=choques+"/servidor..."
+    choques="clients/stop" #"topic=choques+"/servidor..."
     #Para evitar ponerlo todo el rato, y errores a la hora de probar el codigo.
 
 
