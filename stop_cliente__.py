@@ -29,7 +29,7 @@ def print_state(msg= "", need_verification = False, print_table = True):
     """
     os.system('cls' if os.name == 'nt' else "printf '\033c'")
     if (not(need_verification) and print_table):
-        print("La letra de esta ronda es la ",str(letra.value)[2:-1].upper())
+        print("La letra de esta ronda es la",str(letra.value)[2:-1].upper(),"\n")
         i = 1
         for key in table:
             print(bcolors.WARNING + "["+ str(i)+ "]" +bcolors.ENDC, key.upper(), " : ",end ="")
@@ -39,7 +39,7 @@ def print_state(msg= "", need_verification = False, print_table = True):
                 print("________")
             i += 1
         print("")
-        print("Parar el juego: 'STOP' / '0'\nSalir de la partida: 'EXIT' / '!'")
+        print("Parar el juego: 'STOP' / '0'\nSalir de la partida: 'EXIT' / '!'\nVolver a categorías: 'BACK'")
         print(msg, end="")
     else:
         print(msg, end="")
@@ -53,7 +53,8 @@ def vote(rival_table):
     referenciando el número de la categoría que quiera marcar como erronea.
     NOTA: Esta función no se comunica con el Servidor, solamente trata los datos.
     """
-    print_state("Te toca verificar la siguiente tabla\n", False, False)
+    sleep(1)
+    print_state("Te toca verificar la siguiente tabla\n\n", False, False)
     i=1
     for key in rival_table:
         print(bcolors.WARNING + "["+ str(i)+ "]" +bcolors.ENDC, key.upper(), " : ",end ="")
@@ -72,6 +73,7 @@ def vote(rival_table):
         try:
             index = int(tema)
         except:
+            index = 0
             pass
         if (0 < index and index < len(lst)):
             rival_table[lst[index]] = None
@@ -196,7 +198,7 @@ def callback_partidas(mqttc, userdata, msg):
             msg = "\nSi quieres jugar otra partida pulsa 1, si quieres salir pulsa 0\n\n-> "
             print_state(msg, False, False)
             eleccion = input()
-            if int(eleccion) == 1:
+            if int(eleccion) == 1 and eleccion != "":
                 mqttc.subscribe(choques+"/servidor/"+userdata[0])
                 mqttc.publish(choques+"/servidor/"+userdata[0],payload="CONNECT_REQUEST")
                 print("ESPERANDO AL SERVIDOR...")
@@ -290,11 +292,12 @@ def callback_jugadores(mqttc, userdata, msg):
         '''
     #
     elif msg.payload == b"JUGADORES_INSUFICIENTES":
-        print("Lo siento, todos los jugadores se han marchado, vuelve más tarde :)")
+        print_state("Lo siento, todos los jugadores se han marchado, vuelve más tarde :)",True, False)
+        print("\n____ADIOS___\n")
+        sleep(1)
         conectado.value=0
         mqttc.publish(choques+"/jugadores/"+userdata[0], payload = "DISCONNECT")
         mqttc.disconnect()
-        print_state("\n____ADIOS___\n", True, False)
 
 def callback_servidor(mqttc, userdata, msg):
     '''
@@ -340,7 +343,7 @@ def callback_servidor(mqttc, userdata, msg):
 if __name__ == "__main__":    
 
     broker="wild.mat.ucm.es"
-    choques="clients/stop" #topic=choques+"/servidor...
+    choques="clients/stopw" #topic=choques+"/servidor...
     ###choques: para evitar colisiones en el broker en las pruebas
 
     nombre_usuario=input("¿nombre usuario? ") #identificador del usuario

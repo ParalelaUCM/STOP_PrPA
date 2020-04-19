@@ -106,7 +106,7 @@ def callback_partidas(mqttc, userdata, msg):
     elif len(spl)==5:
         #Aqui entramos a calcular los puntos y la varificacion de las palabras. El primer if
         #es para el caso en el que un jugador se quede solo en el desarrollo de la partida, con
-        #lo cual, no puede seguir jugando. (Necesario por el randit(1,0), que produciria error cuando
+        #lo cual, no puede seguir jugando. (Necesario por el randint(1,0), que produciria error cuando
         #se mandan las tablas del resto de jugadores para verificarlas.)
         if len(userdata[indice_partida])==2:
             lista_usuarios=list(userdata[indice_partida])
@@ -122,7 +122,6 @@ def callback_partidas(mqttc, userdata, msg):
                 userdata[indice_partida][spl[4]][clave]=valor
             userdata[indice_partida]['info']['confirmados']+=1
             cuantos=len(userdata[indice_partida])-1 #cuantos jugadores hay
-            
             if (cuantos == userdata[indice_partida]['info']['confirmados']):
                 #cuando ha llegado la info de todos los jugadores, enviamos para su verificacion.
                 userdata[indice_partida]['info']['confirmados']=0
@@ -134,20 +133,24 @@ def callback_partidas(mqttc, userdata, msg):
                 shuffle(lista_usuarios)
                 #lista_usuarios=[elisa','sergio','berni','marcos','pablo']
                 cuantos=len(lista_usuarios) #cuantos=5
-                modulo=randint(1,cuantos-1) #modulo=2
-                for i in range(len(lista_usuarios)):
-                    # i de 0 a 4, i=3
-                    usuario_actual=lista_usuarios[i]
-                    # usuario_actual='elisa'
-                    usuario_modulo=lista_usuarios[(i+modulo)%cuantos]
-                    # usuario_modulo='marcos'
-                    datos0=usuario_actual
-                    datos1=userdata[indice_partida][usuario_actual]
-                    datos=[datos0,datos1]
-                    # datos = ['elisa',{'ciudad':'dinamarca,'apellido':'dinamarca'} ]
-                    mqttc.publish(choques+"/partidas/"+str(indice_partida)+"/votacion/"+usuario_modulo,
-                                  payload=pickle.dumps(datos))
-                    #y se lo publicamos al otro usuario para que corrija
+                if cuantos>1:
+                    modulo=randint(1,cuantos-1) #modulo=2
+                    for i in range(len(lista_usuarios)):
+                        # i de 0 a 4, i=3
+                        usuario_actual=lista_usuarios[i]
+                        # usuario_actual='elisa'
+                        usuario_modulo=lista_usuarios[(i+modulo)%cuantos]
+                        # usuario_modulo='marcos'
+                        datos0=usuario_actual
+                        datos1=userdata[indice_partida][usuario_actual]
+                        datos=[datos0,datos1]
+                        # datos = ['elisa',{'ciudad':'dinamarca,'apellido':'dinamarca'} ]
+                        mqttc.publish(choques+"/partidas/"+str(indice_partida)+"/votacion/"+usuario_modulo,
+                                      payload=pickle.dumps(datos))
+                        #y se lo publicamos al otro usuario para que corrija
+                else:
+                    mqttc.publish(choques+"/jugadores/"+lista_usuarios[0],
+                                      payload="JUGADORES_INSUFICIENTES")
             ##
         elif spl[4]=="votacion": #['clients','estop','partidas','1','votacion']
             mensaje=pickle.loads(msg.payload) #llega [nombre,diccionario]
@@ -169,7 +172,7 @@ def callback_partidas(mqttc, userdata, msg):
                         ids.append(clave)
                         diccs.append(valor)
                 print_userdata(userdata)
-                print("Entramos a calcular los puntos de la ronda")
+                #print("Entramos a calcular los puntos de la ronda")
                 calcula_puntos(ids,diccs,spl[3],userdata)
             ##
         elif spl[4]=="puntos": #['clients','estop','partidas','1','puntos']
@@ -296,7 +299,7 @@ def callback_servidor(mqttc, userdata, msg):
         else:
             #aceptamos al usuario
             mqttc.publish(msg.topic,payload="CONNECT_ACCEPT")
-    print_userdata(userdata)
+    #print_userdata(userdata)
 
 #
 
@@ -313,14 +316,15 @@ def print_userdata(userdata):
                     for clave2,valor2 in (userdata[clave]['info']).items():
                         print("-",clave2,":",valor2)
                 else:
-                    print(clave1,":",valor1)
+                    
+                    print(clave1,":",valor1['puntos'],"puntos")
             print("\n")
     
 
 if __name__ == "__main__":
 
     broker="wild.mat.ucm.es"
-    choques="clients/stop" #"topic=choques+"/servidor..."
+    choques="clients/stopw" #"topic=choques+"/servidor..."
     #Para evitar ponerlo todo el rato, y errores a la hora de probar el codigo.
 
 
@@ -331,7 +335,7 @@ if __name__ == "__main__":
     """
     max_jugadores_partida=10
     min_jugadores_partida=2
-    max_puntuacion = 25
+    max_puntuacion = 2500
 
     mqttc = Client(userdata={}) #diccionario como userdata para la info del juego
     #'info' indica el estado de la partida:
