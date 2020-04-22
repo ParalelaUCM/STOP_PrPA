@@ -333,17 +333,17 @@ if __name__ == "__main__":
     maxima que indicara el ganador.
     """
     try:
-        iii=input("¿Número mínimo de jugadores por partida?\n")
+        iii=input("¿Número mínimo de jugadores por partida?\n->")
         min_jugadores_partida=max(2,int(iii))
     except:
         min_jugadores_partida=2
     try:
-        iii=input("¿Número máximo de jugadores por partida?\n")
+        iii=input("¿Número máximo de jugadores por partida?\n->")
         max_jugadores_partida=max(2,int(iii))
     except:
         max_jugadores_partida=10
     try:
-        iii=input("¿Puntuación máxima?\n")
+        iii=input("¿Puntuación máxima?\n->")
         max_puntuacion=max(50,int(iii))
     except:
         max_puntuacion = 500

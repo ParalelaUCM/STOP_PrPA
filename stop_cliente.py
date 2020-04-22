@@ -159,7 +159,7 @@ def new_play():
                     print_state()
                 elif (word.upper() == "BACK") or (word == "-"):
                     print_state()
-                elif (len(word) == 1):
+                elif (len(word) == 1) and not(salir):
                     print_state("Eso no es una palabra, es una simple letra...", True, False)
             else:
                 print_state("\nEse tema no existe actualmente... Prueba de nuevo", True)
